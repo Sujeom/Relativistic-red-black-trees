@@ -19,7 +19,7 @@ class RealRBT
 			T val;
 			int key;
 			char color;
-			Node *left=NULL, *right=NULL;
+			Node *left=NULL, *right=NULL, *parent = NULL;
 			Node(int _key, T _val)
 			{
 				val = _val;
@@ -51,15 +51,21 @@ class RealRBT
 			return;
 		}
 
-		char prevColor = BLACK;
+		if(palceNode(root, newNode))
+		{
+			
+		}
+		else
+		{
 
-		Node *tempNodePointer = head;
+		}
+
 
 		while()
 		
 	}
 
-	//this function will return false if there should be a rebalancing of the tree
+	//this function will return false if the parent is red and true if the parent is black
 	bool placeNode(Node* root, Node* newNode)
 	{
 		if(root->key > newNode->key)
@@ -67,19 +73,47 @@ class RealRBT
 			if(root->left == NULL)
 			{
 				root->left = newNode;
-				return root == BLACK? true:false;
+				newNode->parent = root;
+				return checkUncle(root);
 			}
-
+			
 			return placeNode(root->left, newNode);			
 		}
 		
 		if(root->right == NULL)
 		{
 			root->right = newNode;
+			newNode->parent = root;
 			return root == BLACK? true:false;
 		}
 			
 		return placeNode(root->right, newNode);
+	}
+
+	bool checkUncle(Node* parent)
+	{
+		if(parent->parent == NULL)
+		{
+			return false;
+		}
+
+		if(parent->parent->left != NULL)
+		{
+			if(parent->parent->left->color == BLACK)
+				return false;
+			
+			return true;
+		}
+
+		if(parent->parent->right != NULL)
+		{
+			if(parent->parent->right->color == BLACK)
+				return false;
+			
+			return true;
+		}
+
+		return false;
 	}
 
 		
