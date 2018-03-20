@@ -46,9 +46,8 @@ class RealRBT {
 		RealRBT() {
 			root = NULL;
 
-
 			for(int i = 0; i < MAX_NUM_NODES; i++)
-				nodeBank.push_back(new Node<T>(0,  NULL));
+				nodeBank.push_back(new Node<T>(0,  new T()));
 		}
 
 		Node<T> *getNewNode() {
@@ -58,8 +57,9 @@ class RealRBT {
 		void insert(T x) {
 			size_t key = hash<T>{}(x);
 			Node<T> *newNode = getNewNode();
+
 			newNode->key = key;
-			*newNode->val = x;
+			*(newNode->val) = x;
 
 			//
 			// if(root == NULL) {
