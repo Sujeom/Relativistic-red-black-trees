@@ -18,12 +18,12 @@ template <class T>
 class Node {
 	public:
 		// Member variables
-		T val;
+		T *val;
 		int key;
 		bool color;
 		Node *left, *right, *parent;
 
-		Node(int _key, T _val) {
+		Node(int _key, T *_val) {
 			val = _val;
 			key = _key;
 			color = BLACK;
@@ -46,8 +46,9 @@ class RealRBT {
 		RealRBT() {
 			root = NULL;
 
+
 			for(int i = 0; i < MAX_NUM_NODES; i++)
-				nodeBank.push_back(new Node<T>(0, NULL));
+				nodeBank.push_back(new Node<T>(0,  NULL));
 		}
 
 		Node<T> *getNewNode() {
@@ -58,7 +59,7 @@ class RealRBT {
 			size_t key = hash<T>{}(x);
 			Node<T> *newNode = getNewNode();
 			newNode->key = key;
-			newNode->val = x;
+			*newNode->val = x;
 
 			//
 			// if(root == NULL) {
