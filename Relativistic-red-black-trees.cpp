@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <mutex>
+#include <assert.h>
 
 #define TOTAL_THREADS 5
 #define MAX_NUM_NODES 10000
@@ -222,6 +223,28 @@ class RealRBT {
 			readUnlock(this->lock);
 
 			return val;
+		}
+
+		Node<T> *next(Node<T> *currentNode)
+		{
+			Node<T> *currentNodex,*currentNodey;
+
+			if ((currentNodex = *currentNode->right) != NULL) return leftmost(currentNodex);
+
+			currentNodey = currentNode->parent;
+			while (currentNodey != NULL && currentNodey->right != NULL && currentNode->key== *(currentNodey->right)->key)
+			{
+				currentNode = currentNodey;
+				currentNodey = *currentNodey->parent;
+			}
+
+			return currentNodey;
+		}
+
+		void *previous(T *tree, long nextKey, long *key)
+		{
+			assert(0);
+			return NULL;
 		}
 		//
 		// T next() {
