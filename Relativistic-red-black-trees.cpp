@@ -3,7 +3,7 @@
 #include <atomic>
 #include <vector>
 #include <string>
-// #include <queue>
+#include <mutex>
 
 #define TOTAL_THREADS 5
 #define MAX_NUM_NODES 10000
@@ -19,7 +19,7 @@ class Node {
 	public:
 		// Member variables
 		T *val;
-		int key;
+		size_t key;
 		bool color;
 		Node *left, *right, *parent;
 
@@ -40,122 +40,189 @@ class RealRBT {
 
 	public:
 		atomic<Node<T>*> root;
-		atomic_int numOps{0};
 		atomic_int size{0};
+		mutex *lock;
 
 		RealRBT() {
 			root = NULL;
+			lock = new mutex();
 
 			for(int i = 0; i < MAX_NUM_NODES; i++)
-				nodeBank.push_back(new Node<T>(0,  new T()));
+				nodeBank.push_back(new Node<T>(0, new T()));
 		}
 
 		Node<T> *getNewNode() {
 			return nodeBank[(nodeBankIndex++) % MAX_NUM_NODES];
 		}
 
-		void insert(T x) {
-			size_t key = hash<T>{}(x);
-			Node<T> *newNode = getNewNode();
-
-			newNode->key = key;
-			*(newNode->val) = x;
-
-			//
-			// if(root == NULL) {
-			// 	head = newNode;
-			// 	head->color = BLACK;
-			// 	return;
-			// }
-			//
-			// if(placeNode(root, newNode)) {
-			//
-			// }
-			// else {
-			//
-			// }
-			//
-			// while();
-
-		}
+		// size_t insert(T x) {
+		// 	size_t key = hash<T>{}(x);
+		// 	Node<T> *newNode = getNewNode();
+		//
+		// 	// Assign the node a value and key
+		// 	newNode->key = key;
+		// 	*(newNode->val) = x;
+		//
+		// 	//
+		// 	// if(root == NULL) {
+		// 	// 	head = newNode;
+		// 	// 	head->color = BLACK;
+		// 	// 	return;
+		// 	// }
+		// 	//
+		// 	// if(placeNode(root, newNode)) {
+		// 	//
+		// 	// }
+		// 	// else {
+		// 	//
+		// 	// }
+		// 	//
+		// 	// while();
+		//
+		// 	return newNode->key;
+		// }
 
 		// this function will return false if the parent is red and true if the parent is black
-		bool placeNode(Node<T> *root, Node<T> *newNode) {
-			if(root->key > newNode->key) {
-				if(root->left == NULL) {
-					root->left = newNode;
-					newNode->parent = root;
-					return checkUncle(root);
-				}
-
-				return placeNode(root->left, newNode);
-			}
-
-			if(root->right == NULL) {
-				root->right = newNode;
-				newNode->parent = root;
-				return root == BLACK? true:false;
-			}
-
-			return placeNode(root->right, newNode);
-		}
-
-		bool checkUncle(Node<T> *parent) {
-			if(parent->parent == NULL) {
-				return false;
-			}
-
-			if(parent->parent->left != NULL) {
-				if(parent->parent->left->color == BLACK)
-					return false;
-
-				return true;
-			}
-
-			if(parent->parent->right != NULL) {
-				if(parent->parent->right->color == BLACK)
-					return false;
-
-				return true;
-			}
-
-			return false;
-		}
-
-
-		T lookup(int key) {
-			Node<T> *newNode;
-			Node<T> *prevNode;
-
-			do {
-				prevNode = root;
-
-				if(prevNode == NULL) {
-					return NULL;
-				}
-
-				newNode = prevNode->next;
-
-				numOps += 1;
-
-			} while(!root.compare_exchange_weak(prevNode, newNode, std::memory_order_release, std::memory_order_relaxed));
-
-			size -= 1;
-
-			return prevNode->val;
-		}
+		// bool placeNode(Node<T> *root, Node<T> *newNode) {
+		// 	if(root->key > newNode->key) {
+		// 		if(root->left == NULL) {
+		// 			root->left = newNode;
+		// 			newNode->parent = root;
+		// 			return checkUncle(root);
+		// 		}
+		//
+		// 		return placeNode(root->left, newNode);
+		// 	}
+		//
+		// 	if(root->right == NULL) {
+		// 		root->right = newNode;
+		// 		newNode->parent = root;
+		// 		return root == BLACK? true:false;
+		// 	}
+		//
+		// 	return placeNode(root->right, newNode);
+		// }
+		//
+		// bool checkUncle(Node<T> *parent) {
+		// 	if(parent->parent == NULL) {
+		// 		return false;
+		// 	}
+		//
+		// 	if(parent->parent->left != NULL) {
+		// 		if(parent->parent->left->color == BLACK)
+		// 			return false;
+		//
+		// 		return true;
+		// 	}
+		//
+		// 	if(parent->parent->right != NULL) {
+		// 		if(parent->parent->right->color == BLACK)
+		// 			return false;
+		//
+		// 		return true;
+		// 	}
+		//
+		// 	return false;
+		// }
+		//
+		//
+		// T *lookup(size_t key) {
+		// 	Node<T> *tempRoot = this->root;
+		// 	Node<T> *expectedRoot;
+		//
+		// 	while(tempRoot != NULL) {
+		// 		expectedRoot = tempRoot.load(memory_order_relaxed);
+		//
+		// 		// If the current node has a key larger than what we want, traverse the left side
+		// 		// by switching 'roots' with a CAS operation
+		// 		if(tempRoot->key > key)
+		// 			while(!tempRoot.compare_exchange_weak(expectedRoot, tempRoot->left, memory_order_release, memory_order_relaxed));
+		//
+		// 		// If the current node has a key larger than what we want, traverse the right side
+		// 		// by switching 'roots' with a CAS operation
+		// 		else if(tempRoot->key <= key)
+		// 			while(!tempRoot.compare_exchange_weak(expectedRoot, tempRoot->right, memory_order_release, memory_order_relaxed));
+		//
+		// 		// Found the node!
+		// 		else
+		// 			return tempRoot->val;
+		// 	}
+		//
+		// 	return NULL;
+		// }
 
 		// void deleteNode(int key) {
 		// 	return numOps;
 		// }
 		//
-		// T first() {
-		//
-		// }
-		//
-		// T last() {
-		//
-		// }
+
+		// Get the leftmost node from the given node
+		Node<T> *leftmost(Node<T> *node) {
+			if(node == NULL)
+				return NULL;
+
+			Node<T> *temp = node;
+			while(temp->left != NULL)
+				temp = temp->left;
+
+			return temp;
+		}
+
+		// Get the rightmost node from the given node
+		Node<T> *rightmost(Node<T> *node) {
+			if(node == NULL)
+				return NULL;
+
+			Node<T> *temp = node;
+			while(temp->right != NULL)
+				temp = temp->right;
+
+			return temp;
+		}
+
+		void readLock(mutex *lock) {
+			lock->lock();
+		}
+
+		void readUnlock(mutex *lock) {
+			lock->unlock();
+		}
+
+		T *first() {
+			Node<T> *node = NULL;
+			T *val = NULL;
+
+			readLock(this->lock);
+
+			node = leftmost(this->root);
+
+			if(node == NULL)
+				return NULL;
+
+			val = node->val;
+
+			readUnlock(this->lock);
+
+			return val;
+		}
+
+		T *last() {
+			Node<T> *node = NULL;
+			T *val = NULL;
+
+			readLock(this->lock);
+
+			node = rightmost(this->root);
+
+			if(node == NULL)
+				return NULL;
+
+			val = node->val;
+
+			readUnlock(this->lock);
+
+			return val;
+		}
 		//
 		// T next() {
 		//
@@ -282,17 +349,37 @@ class RealRBT {
 //
 // }
 
+// size_t insertOp(RealRBT<int> *rbt, int val, int id) {
+// 	// Insert it and jot down the time
+// 	size_t key = rbt->insert(val);
+// 	long time = clock();
+//
+// 	// Strings print out weird concurrently. Build them first then print them out.
+// 	string p_out = "Thread " + to_string(id) + " inserted node with value " + to_string(val) + " and key " + to_string(key) + " at " + to_string(time) + "ms.\n";
+// 	cout << p_out;
+//
+// 	return key;
+// }
+//
+// int *lookupOp(RealRBT<int> *rbt, int key, int id) {
+// 	// Insert it and jot down the time
+// 	int *val = rbt->lookup(key);
+// 	long time = clock();
+//
+// 	// Strings print out weird concurrently. Build them first then print them out.
+// 	string p_out = "Thread " + to_string(id) + " looked up node with value " + to_string(*val) + " and key " + to_string(key) + " at " + to_string(time) + "ms.\n";
+// 	cout << p_out;
+//
+// 	return val;
+// }
+
 void runThread(RealRBT<int> *rbt, int id) {
 	// Make a random integer in the interval [1, 100)
 	int val = rand() % 100;
 
 	// Insert it and jot down the time
-	rbt->insert(val);
-	long time = clock();
-
-	// Strings print out weird concurrently. Build them first then print them out.
-	string p_out = "Thread " + to_string(id) + " inserted node with value " + to_string(val) + " at " + to_string(time) + "ms.\n";
-	cout << p_out;
+	// size_t key = insertOp(rbt, val, id);
+	// int *found = lookupOp(rbt, key, id);
 }
 
 
