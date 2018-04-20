@@ -145,6 +145,35 @@ class RealRBT {
 			return prevNode->val;
 		}
 
+		bool deleteN(Node<T> *root, int key) {
+			if(root->key > key) {
+				if(root->left == NULL) {
+					return false;
+				}
+				else{
+					root = root->left;
+					return deleteN(root, key);
+				}
+			
+
+				return placeNode(root->left, newNode);
+			}
+			else if(root->key < key)
+			{
+				if(root->right == NULL) {
+					return false;
+				}
+				else{
+					root = root->right;
+				}
+				return placeNode(root->right, newNode);
+			}
+			else{
+					if(root->parent->color != root->color)
+						
+			}
+
+		}
 		// void deleteNode(int key) {
 		// 	return numOps;
 		// }
