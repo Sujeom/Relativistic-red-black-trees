@@ -246,14 +246,7 @@ class RealRBT {
 			assert(0);
 			return NULL;
 		}
-		//
-		// T next() {
-		//
-		// }
-		//
-		// T prev() {
-		//
-		// }
+		
 };
 
 // global variables
@@ -404,7 +397,6 @@ void runThread(RealRBT<int> *rbt, int id) {
 	// size_t key = insertOp(rbt, val, id);
 	// int *found = lookupOp(rbt, key, id);
 }
-
 
 int main(int argc, char **argv) {
 	vector<thread*> threads;
