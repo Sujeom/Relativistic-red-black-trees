@@ -10,6 +10,7 @@
 
 #define BLACK 0
 #define RED 1
+#define DOUBLEBLACK 2
 
 using namespace std;
 
@@ -20,12 +21,14 @@ class Node {
 		// Member variables
 		T *val;
 		int key;
-		bool color;
+		bool doubleB;
+		int color;
 		Node *left, *right, *parent;
 
 		Node(int _key, T *_val) {
 			val = _val;
 			key = _key;
+			doubleB = false;
 			color = BLACK;
 			left = NULL, right = NULL, parent = NULL;
 		}
@@ -168,10 +171,26 @@ class RealRBT {
 				}
 				return placeNode(root->right, newNode);
 			}
-			else{
-					if(root->parent->color != root->color)
-						
+			else{//we found the node to be deleted
+					//if the two nodes are both red
+					if(root->parent->color == RED && root->color)
+					{
+						if(root->color == RED)
+						{
+
+						}
+						else
+						{
+
+						}
+					}
 			}
+
+		}
+
+		//If sibling root is black and at least one of sibling’s children is red
+		void case1()
+		{
 
 		}
 		// void deleteNode(int key) {
