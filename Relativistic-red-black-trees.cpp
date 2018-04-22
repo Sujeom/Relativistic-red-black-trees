@@ -10,6 +10,7 @@
 
 #define BLACK 0
 #define RED 1
+#define DOUBLEBLACK 2
 
 using namespace std;
 
@@ -20,12 +21,14 @@ class Node {
 		// Member variables
 		T *val;
 		int key;
-		bool color;
+		bool doubleB;
+		int color;
 		Node *left, *right, *parent;
 
 		Node(int _key, T *_val) {
 			val = _val;
 			key = _key;
+			doubleB = false;
 			color = BLACK;
 			left = NULL, right = NULL, parent = NULL;
 		}
@@ -145,7 +148,10 @@ class RealRBT {
 			return prevNode->val;
 		}
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> db46a3a322991f36a8ab03039932b88c637968ba
 		bool deleteN(Node<T> *root, int key) {
 			if(root->key > key) {
 				if(root->left == NULL) {
@@ -170,6 +176,7 @@ class RealRBT {
 				return placeNode(root->right, newNode);
 			}
 			else{//we found the node to be deleted
+<<<<<<< HEAD
 				
 				//the case that the node to be deleted is a 
 				//leaf node so it is just a simple delete
