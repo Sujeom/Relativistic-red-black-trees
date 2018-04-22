@@ -172,7 +172,6 @@ class RealRBT {
 				return placeNode(root->right, newNode);
 			}
 			else{//we found the node to be deleted
-<<<<<<< HEAD
 				
 				//the case that the node to be deleted is a 
 				//leaf node so it is just a simple delete
@@ -193,7 +192,7 @@ class RealRBT {
 
 		}
 
-		bool deleteNoChild(Node<T> root)
+		bool deleteNoChild(Node<T> *root)
 		{
 			if(root->parent->left == root)
 			{
@@ -207,7 +206,7 @@ class RealRBT {
 			return true;
 		}
 
-		bool deleteOneChild(Node<T> root)
+		bool deleteOneChild(Node<T> *root)
 		{
 			if(root->left == NULL && root->right != NULL)
 				{
@@ -239,9 +238,9 @@ class RealRBT {
 			return false;
 		}
 
-		bool deleteTwoChildren(Node<T> root)
+		bool deleteTwoChildren(Node<T> *root)
 		{
-			Node<T> temp = root->right;
+			Node<T> *temp = root->right;
 
 			while(temp->left != NULL)
 				temp = temp->left;
@@ -261,7 +260,7 @@ class RealRBT {
 			return true;
 		}
 
-		void redBlackDelete(Node<T> root, Node<T> replace)
+		void redBlackDelete(Node<T> *root, Node<T> *replace)
 		{
 			
 			//if the replacement is NULL it does not matter whatever we do
@@ -279,9 +278,126 @@ class RealRBT {
 			//both of the nodes are black 
 			else
 			{
-				Node<T> doubleBlackNode, sibling;
+				twoBlackNodes(root, replace);
+			}
+		}
+
+		void twoBlackNodes(Node<T> *root , Node<T> *replace)
+		{
+			
+			//variables needed to follow the rules for 
+			//a RB tree
+			Node<T> *doubleBlackNode, *sibling, *p, *s, *r, *u;
+			
+			bool isLeft = false;
+
+			//this is to get the palcement of the root node
+			//with respect to the parent
+			if(root->parent->left == root)
+			{
+				sibling = root->parent->right;
+				isLeft = true;
+			}
+			else 
+				sibling = root->parent->left;
+				
+			//if the the replace is NULL then it will be marked as a 
+			//double black node
+			u = replace;
+			p = root->parent;
+			doubleBlackNode = NULL;
+
+			int rotationCase = getR(s, r, isLeft);
+
+			
+		}
+
+		//this will get the R value and also return the 
+		//type of rotation that shoud be applied
+		//RR: 1 
+		//RL: 2
+		//LL: 3
+		//LR: 4
+		int getR(Node<T> *s, Node<T> *r bool isLeft)
+		{
+			if(s->left != NULL && s->right != NULL)
+			{
+				if(isLeft && s->right->color == RED)
+				{//this is the RR case
+					r = s->right;
+					return 1;
+				}	
+				else if(isLeft && s->left->color == RED)
+				{//thsi is the RL case
+					r = s->left;
+					return 2;
+				}	
+			}
+			else if(s->left != NULL)
+			{
+				if(isLeft)
+				{
+					if(s->left->color == RED)
+					{
+						//this will be the LL case
+						r = s->left;
+						return 3;
+						
+					}
+				}
+				else
+				{
+					if(s->left->color == RED)
+					{
+						//this will be the RL case
+						r = s->left;
+						return 3;
+						
+					}
+				}
+			}
+			else
+			{
+				if(s->right->color == RED)
+				{//this will be the RL case
+					r = s->right;
+					return 4;
+				}
+			}
+		}
+
+		void lLCase(Node<T> *u, Node<T> *p, Node<T> *s, Node<T> *r)
+		{
+
+		}
+
+		void lRCase(Node<T> u, Node<T> p, Node<T> s, Node<T> r)
+		{
+
+		}
+
+		void rLCase(Node<T> u, Node<T> p, Node<T> s, Node<T> r)
+		{
+
+		}
+
+		void rRCase(Node<T> u, Node<T> p, Node<T> s, Node<T> r)
+		{
+
+		}
+
+
+		/*///////////////////////////////////////////////////
+			PLACEHOLDER CODE FOR LATER
+
+			//variables needed to follow the rules for 
+				//a RB tree
+				Node<T> doubleBlackNode, sibling, p, s, r, u;
+				
 				bool isLeft = false;
 
+				//this is to get the palcement of the root node
+				//with respect to the parent
 				if(root->parent->left == root)
 				{
 					sibling = root->parent->right;
@@ -291,23 +407,34 @@ class RealRBT {
 					sibling = root->parent->left;
 					
 
-
 				//case 1 where the replace node is NULL
 				if(replace == NULL)
 				{
+					//if the the replace is NULL then it will be marked as a 
+					//double black node
+					u = replace;
+					p = root->parent;
 					doubleBlackNode = NULL;
 
+					//if the root node is a left node we will then check its sibling and determin if the next step
+					//will the be process of a right right delete or a right left delete
 					if(isLeft)
 					{
 						if(sibling == NULL)
 						{
-
+							
 						}
 						else if(sibling == BLACK)
 						{
+							//this is the case for a Right right delete
 							if(sibling->left != NULL && sibling->right != NULL)
 							{
-								if(sibling->left == RED || sibling->right->color == RED)
+
+								//now we can determin r
+								//r will be the right child because that will be the easiest to delete
+								r = sibling->right;
+
+								if(sibling->parent->right->val == sibling->val || sibling->left-> == RED && sibling->right->color == RED)
 								{
 
 								}
@@ -323,6 +450,7 @@ class RealRBT {
 							{
 								if(sibling->right->color == RED)
 								{
+
 								}
 							}
 						}
@@ -338,14 +466,17 @@ class RealRBT {
 				{
 
 				}
-			}
-		}
 
-		//If sibling root is black and at least one of sibling’s children is red
-		void case1()
-		{
 
-		}
+
+
+
+
+
+
+
+
+		*///////////////////////////////////
 		// void deleteNode(int key) {
 		// 	return numOps;
 		// }
