@@ -353,6 +353,24 @@ class RealRBT {
 			rotate_right(root->parent);
 		}
 	}
+
+	//this a functtion that will delete the nod ethat has two children
+	void interiorDelete(Node<T> *nodeToDelete)
+	{
+		Node<T> *cNode = next(nodeToDelete);
+
+		Node<T> *cPrimeNode = cNode.getCopy();
+
+		cPrimeNode->color = nodeToDelete->color;
+
+		cPrimeNode->left = nodeToDelete->left;
+		cPrimeNode->left->parent = cPrimeNode;
+
+		cPrimeNode->right = nodeToDelete->right;
+		cPrimeNode->right->parent = cPrimeNode;
+
+		Node<T> *fNode = nodeToDelete->parent;
+	}
 		
 		// void deleteNode(int key) {
 		// 	return numOps;
