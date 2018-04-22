@@ -214,9 +214,9 @@ class RealRBT {
 		cNodePrime->left->parent = cNodePrime;
 
 		///rpPublish(bNode->right, cNodePrime);
-		cNodePrime->prime = bNodePrime;
+		cNodePrime->parent = bNode;
 
-		Node<T> *dNode = cNode->parent;
+		dNode = cNode->parent;
 
 		if(dNOde->left == cNode)
 			;////rpPublish(dNode->left, bNode);
@@ -229,6 +229,110 @@ class RealRBT {
 
 	}
 
+	void diagRightRestruct(Node<T> *bNode)
+	{
+		Node<T> cNodePrime = cNode.getCopy();
+		cNodePrime->right = bNode->left;
+		cNodePrime->right->parent = cNodePrime;
+
+		///rpPublish(bNode->right, cNodePrime);
+		cNodePrime->parent = bNode;
+
+		dNode = cNode->parent;
+
+		if(dNOde->right == cNode)
+			;////rpPublish(dNode->right, bNode);
+		else
+			;//////rpPublish(dNode->left, bNode);
+
+		bNode->parent = dNode;
+
+		rpFree(cNode);
+
+	}
+
+	void zigLeftRestruct(Node<T> *bNode)
+	{
+		Node<T> *aPrime = aNode.getCopy();
+		aPrime->right = B->left;
+		aPrime->right->parent = aPrime;
+
+		//rpPublish(B->left, aPrime);
+		aPrime->parent = B;
+
+		cPrime = C.getCopy();
+		cPrime->left = B->right;
+		cPrime->left->parent = cPrime;
+
+		rpPublish(B->right, cPrime);
+		cPrime->parent = B;
+
+		D = C->parent;
+
+		if(D->left == C)
+			;//rpPubllish(D->left, B);
+		else
+			;//rpPublish(D->right, B);
+
+		rpFree(A);
+		rpFree(C);
+
+	}
+
+	void zigRightRestruct(Node<T> *bNode)
+	{
+		Node<T> *aPrime = aNode.getCopy();
+		aPrime->left = B->right;
+		aPrime->left->parent = aPrime;
+
+		//rpPublish(B->left, aPrime);
+		aPrime->parent = B;
+
+		cPrime = C.getCopy();
+		cPrime->right = B->left;
+		cPrime->right->parent = cPrime;
+
+		rpPublish(B->left, cPrime);
+		cPrime->parent = B;
+
+		D = C->parent;
+
+		if(D->right == C)
+			;//rpPubllish(D->right, B);
+		else
+			;//rpPublish(D->left, B);
+
+		rpFree(A);
+		rpFree(C);
+
+	}
+
+	void rpFree(/*void *lock, */void (*func)(void *ptr), void *ptr)
+	{
+		rp_lock_t *rp_lock = (rp_lock_t *)lock;
+    	int head;
+
+
+	}
+		// void deleteNode(int key) {
+		// 	return numOps;
+		// }
+		//
+		// T first() {
+		//
+		// }
+		//
+		// T last() {
+		//
+		// }
+		//
+		// T next() {
+		//
+		// }
+		//
+		// T prev() {
+		//
+		// }
 };
 
 void runThread(RealRBT<int> *rbt, int id) {
