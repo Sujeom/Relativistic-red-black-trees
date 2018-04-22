@@ -334,12 +334,12 @@ class RealRBT {
 			else if(sibling->color == RED)
 			{
 				if(isLeft)
-				{//this will be a left rotation
-
+				{//this will be a left rotation beause sibling is a right child
+					if()
 				}
 				else
-				{//this will be a right rotaion.
-
+				{//this will be a left rotaion because sibling is a left child.
+					
 				}
 			}
 
