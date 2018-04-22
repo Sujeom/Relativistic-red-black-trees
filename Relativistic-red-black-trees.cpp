@@ -246,6 +246,89 @@ class RealRBT {
 			assert(0);
 			return NULL;
 		}
+	}
+
+	//this a functtion that will delete the nod ethat has two children
+	void interiorDelete(Node<T> *nodeToDelete)
+	{
+		Node<T> *cNode = next(nodeToDelete);
+
+		Node<T> *cPrimeNode = cNode.getCopy();
+
+		cPrimeNode->color = nodeToDelete->color;
+
+		cPrimeNode->left = nodeToDelete->left;
+		cPrimeNode->left->parent = cPrimeNode;
+
+		cPrimeNode->right = nodeToDelete->right;
+		cPrimeNode->right->parent = cPrimeNode;
+
+		Node<T> *fNode = nodeToDelete->parent;
+		cPrimeNode->parent = fNode;
+
+		if(fNode->left == nodeToDelete)
+			//TODO create this fuction
+			;////rpPublish(fNode->left, cPrimeNode);
+		else
+			//TODO crate this fuction
+			;///rpPublish(fNode->right, cPrimeNode);
+		//TODO crate this fuction
+		////rpFree(nodeToDelete);
+
+		////waitForReaders();
+
+		Node<T> *eNode = c->parent;
+		//TODO crate this fuction
+		/////////rpPublish(eNode->left, cNode->right);
+		cNode->right->parent = eNode;
+
+		//TODO crate this fuction
+		rpFree(cNode);
+	}
+
+	//this is for the case of the special delete of the repalcement node being the child of
+	//the node to be deleted
+	void specialInterior(Node<T> *bNode)
+	{
+		Node<T> *cNode = next(bNode);
+
+		cNode->color = bNode->color;
+		cNode->left = bNode->left;
+		cNode->left->parent = cNode;
+
+		Node<T> eNode = bNode->parent;
+		if(eNode->left == bNode)
+			;//////rpPublish(eNode->left, cNode);
+		else
+			;//////rpPublish(eNode->right, cNode);
+
+		rpFree(bNode);
+	}
+
+
+	//thsi function will handle the restucturing of the tree
+	//with left diagnal
+	void diagLeftRestruct(Node<T> *bNode)
+	{
+		Node<T> cNodePrime = cNode.getCopy();
+		cNodePrime->left = bNode->right;
+		cNodePrime->left->parent = cNodePrime;
+
+		///rpPublish(bNode->right, cNodePrime);
+		cNodePrime->prime = bNodePrime;
+
+		Node<T> *dNode = cNode->parent;
+
+		if(dNOde->left == cNode)
+			;////rpPublish(dNode->left, bNode);
+		else
+			;//////rpPublish(dNode->right, bNode);
+
+		bNode->parent = dNode;
+
+		rpFree(cNode);
+
+	}
 
 };
 
