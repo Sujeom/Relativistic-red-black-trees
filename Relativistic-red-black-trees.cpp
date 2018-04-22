@@ -7,7 +7,7 @@
 #include <assert.h>
 
 #define TOTAL_THREADS 5
-#define MAX_NUM_NODES 10000
+#define MAX_NUM_NODES 1000000
 
 #define BLACK 0
 #define RED 1
@@ -55,107 +55,6 @@ class RealRBT {
 		Node<T> *getNewNode() {
 			return nodeBank[(nodeBankIndex++) % MAX_NUM_NODES];
 		}
-
-		// size_t insert(T x) {
-		// 	size_t key = hash<T>{}(x);
-		// 	Node<T> *newNode = getNewNode();
-		//
-		// 	// Assign the node a value and key
-		// 	newNode->key = key;
-		// 	*(newNode->val) = x;
-		//
-		// 	//
-		// 	// if(root == NULL) {
-		// 	// 	head = newNode;
-		// 	// 	head->color = BLACK;
-		// 	// 	return;
-		// 	// }
-		// 	//
-		// 	// if(placeNode(root, newNode)) {
-		// 	//
-		// 	// }
-		// 	// else {
-		// 	//
-		// 	// }
-		// 	//
-		// 	// while();
-		//
-		// 	return newNode->key;
-		// }
-
-		// this function will return false if the parent is red and true if the parent is black
-		// bool placeNode(Node<T> *root, Node<T> *newNode) {
-		// 	if(root->key > newNode->key) {
-		// 		if(root->left == NULL) {
-		// 			root->left = newNode;
-		// 			newNode->parent = root;
-		// 			return checkUncle(root);
-		// 		}
-		//
-		// 		return placeNode(root->left, newNode);
-		// 	}
-		//
-		// 	if(root->right == NULL) {
-		// 		root->right = newNode;
-		// 		newNode->parent = root;
-		// 		return root == BLACK? true:false;
-		// 	}
-		//
-		// 	return placeNode(root->right, newNode);
-		// }
-		//
-		// bool checkUncle(Node<T> *parent) {
-		// 	if(parent->parent == NULL) {
-		// 		return false;
-		// 	}
-		//
-		// 	if(parent->parent->left != NULL) {
-		// 		if(parent->parent->left->color == BLACK)
-		// 			return false;
-		//
-		// 		return true;
-		// 	}
-		//
-		// 	if(parent->parent->right != NULL) {
-		// 		if(parent->parent->right->color == BLACK)
-		// 			return false;
-		//
-		// 		return true;
-		// 	}
-		//
-		// 	return false;
-		// }
-		//
-		//
-		// T *lookup(size_t key) {
-		// 	Node<T> *tempRoot = this->root;
-		// 	Node<T> *expectedRoot;
-		//
-		// 	while(tempRoot != NULL) {
-		// 		expectedRoot = tempRoot.load(memory_order_relaxed);
-		//
-		// 		// If the current node has a key larger than what we want, traverse the left side
-		// 		// by switching 'roots' with a CAS operation
-		// 		if(tempRoot->key > key)
-		// 			while(!tempRoot.compare_exchange_weak(expectedRoot, tempRoot->left, memory_order_release, memory_order_relaxed));
-		//
-		// 		// If the current node has a key larger than what we want, traverse the right side
-		// 		// by switching 'roots' with a CAS operation
-		// 		else if(tempRoot->key <= key)
-		// 			while(!tempRoot.compare_exchange_weak(expectedRoot, tempRoot->right, memory_order_release, memory_order_relaxed));
-		//
-		// 		// Found the node!
-		// 		else
-		// 			return tempRoot->val;
-		// 	}
-		//
-		// 	return NULL;
-		// }
-
-		// void deleteNode(int key) {
-		// 	return numOps;
-		// }
-		//
 
 		// Get the leftmost node from the given node
 		Node<T> *leftmost(Node<T> *node) {
@@ -248,7 +147,7 @@ class RealRBT {
 		}
 	}
 
-	//this a functtion that will delete the nod ethat has two children
+	// This a function that will delete the node that has two children
 	void interiorDelete(Node<T> *nodeToDelete)
 	{
 		Node<T> *cNode = next(nodeToDelete);
@@ -286,8 +185,8 @@ class RealRBT {
 		rpFree(cNode);
 	}
 
-	//this is for the case of the special delete of the repalcement node being the child of
-	//the node to be deleted
+	// This is for the case of the special delete of the repalcement node being the child of
+	// the node to be deleted
 	void specialInterior(Node<T> *bNode)
 	{
 		Node<T> *cNode = next(bNode);
@@ -306,8 +205,8 @@ class RealRBT {
 	}
 
 
-	//thsi function will handle the restucturing of the tree
-	//with left diagnal
+	// This function will handle the restucturing of the tree
+	// with left diagnal
 	void diagLeftRestruct(Node<T> *bNode)
 	{
 		Node<T> cNodePrime = cNode.getCopy();
@@ -331,146 +230,6 @@ class RealRBT {
 	}
 
 };
-
-// global variables
-// bool canGetSize = false, canGetNumOp = false, canPop = false, canPush = false;
-// bool *canGetSizeP = &canGetSize, *canGetNumOpP = &canGetNumOp, *canPopP = &canPop, *canPushP = &canPush;
-// int value;
-// int *valuePush = &value;
-// stack<int*> stack;
-
-//menu function that will be ran by an independant thread
-// void menu(void) {
-// 	int option = 1;
-//
-// 	cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-//
-// 	while(option != 0) {
-//
-// 		cin >> option;
-//
-// 		switch(option) {
-// 			case 0:
-// 				canPushP = NULL;
-// 				canPopP = NULL;
-// 				canGetNumOpP = NULL;
-// 				canGetSizeP = NULL;
-// 				break;
-// 			case 1:
-// 				cout<<"what value would you like to push?"<<endl<<endl;
-// 				cin >> value;
-// 				// cout<<"pushing "<<valuePush;
-// 				canPush = true;
-// 				break;
-// 			case 2:
-// 				// cout<<"popping a value ";
-// 				canPop = true;
-// 				break;
-// 			case 3:
-// 				// cout<<"the size of the stack is ";
-// 				canGetNumOp = true;
-// 				break;
-// 			case 4:
-// 				// cout<<"the size of the stack is ";
-// 				canGetSize = true;
-// 				break;
-// 			default:
-// 				cout<<"give a valid input"<<endl<<endl;
-//
-// 		}
-// 	}
-//
-// }
-//
-// // push function that will be ran by an independant thread
-// void pushToStack(void) {
-// 	while(canPushP != NULL) {
-// 		if(*canPushP) {
-// 			cout<<"pushing "<<*valuePush<<endl<<endl;
-// 			stack.push(valuePush);
-// 			*canPushP = false;
-// 			cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-// 		}
-// 	}
-// }
-//
-// //pop function that will be ran by an independant thread
-// void popFromStack(void) {
-// 	while(canPopP != NULL) {
-// 		if(*canPopP) {
-// 			cout<<"popped the value "<<*stack.pop()<<endl<<endl;
-// 			*canPopP = false;
-// 			cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-// 		}
-// 	}
-// }
-//
-// //number of operations function that will be ran by an independant thread
-// void numerOpFromStack(void) {
-// 	while(canGetNumOpP != NULL) {
-// 		if(*canGetNumOpP) {
-// 			cout<<"the number of operations is "<<stack.getNumOps()<<endl<<endl;
-// 			*canGetNumOpP = false;
-// 			cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-// 		}
-// 	}
-// }
-//
-// //size function that will be ran by an independant thread
-// void sizeOfStack(void) {
-// 	while(canGetSizeP != NULL) {
-// 		if(*canGetSizeP) {
-// 			cout<<"the size of the stack is "<<stack.getSize()<<endl<<endl;
-// 			*canGetSizeP = false;
-// 			cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-// 		}
-// 	}
-// }
-//
-// //helper function to test stack functionality
-// void testStack() {
-//   // initialize the myThread array
-// 	thread myThreads[TOTAL_THREADS];
-//
-//   // init each index of myThread
-// 	myThreads[0] = thread(menu);
-// 	myThreads[1] = thread(pushToStack);
-// 	myThreads[2] = thread(popFromStack);
-// 	myThreads[3] = thread(numerOpFromStack);
-// 	myThreads[4] = thread(sizeOfStack);
-//
-//     //detaching so the threads that control the stack operations can run idependantly
-// 	for(int i = 1; i < TOTALTHREADS; i++)
-// 		myThreads[i].detach();
-//
-//   //join this thread so we wait for the menu thread to finish
-//   myThreads[0].join();
-//
-// }
-
-// size_t insertOp(RealRBT<int> *rbt, int val, int id) {
-// 	// Insert it and jot down the time
-// 	size_t key = rbt->insert(val);
-// 	long time = clock();
-//
-// 	// Strings print out weird concurrently. Build them first then print them out.
-// 	string p_out = "Thread " + to_string(id) + " inserted node with value " + to_string(val) + " and key " + to_string(key) + " at " + to_string(time) + "ms.\n";
-// 	cout << p_out;
-//
-// 	return key;
-// }
-//
-// int *lookupOp(RealRBT<int> *rbt, int key, int id) {
-// 	// Insert it and jot down the time
-// 	int *val = rbt->lookup(key);
-// 	long time = clock();
-//
-// 	// Strings print out weird concurrently. Build them first then print them out.
-// 	string p_out = "Thread " + to_string(id) + " looked up node with value " + to_string(*val) + " and key " + to_string(key) + " at " + to_string(time) + "ms.\n";
-// 	cout << p_out;
-//
-// 	return val;
-// }
 
 void runThread(RealRBT<int> *rbt, int id) {
 	// Make a random integer in the interval [1, 100)
