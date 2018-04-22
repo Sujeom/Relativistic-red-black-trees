@@ -23,6 +23,7 @@ class Node {
 		int key;
 		bool doubleB;
 		int color;
+		long index;
 		Node *left, *right, *parent;
 
 		Node(int _key, T *_val) {
@@ -30,6 +31,7 @@ class Node {
 			key = _key;
 			doubleB = false;
 			color = BLACK;
+			index = _index;
 			left = NULL, right = NULL, parent = NULL;
 		}
 w
@@ -39,7 +41,11 @@ w
 		//BLUWWWAAAAAA
 		Node<T>* getCopy()
 		{
-			return new Node<T>(key, val);
+			Node<T> *n = new Node<T>(key, val);
+			
+			memcpy(n, *this, sizeof(Node<T>));
+
+			return n;
 		}
 };
 
@@ -370,8 +376,42 @@ class RealRBT {
 		cPrimeNode->right->parent = cPrimeNode;
 
 		Node<T> *fNode = nodeToDelete->parent;
+		cPrimeNode->parent = fNode;
+
+		if(fNode->left == nodeToDelete)
+			//TODO create this fuction
+			;////rpPublish(fNode->left, cPrimeNode);
+		else 
+			//TODO crate this fuction
+			;///rpPublish(fNode->right, cPrimeNode);
+		//TODO crate this fuction
+		////rpFree(nodeToDelete);
+
+		////waitForReaders();
+
+		Node<T> *eNode = c->parent;
+		//TODO crate this fuction
+		/////////rpPublish(eNode->left, cNode->right);
+		cNode->right->parent = eNode;
+
+		//TODO crate this fuction
+		rpFree(cNode);
 	}
-		
+
+	//this is for the case of the special delete of the repalcement node being the child of 
+	//the node to be deleted
+	void specialInterior()
+	{
+
+	}
+	
+	void rpFree(/*void *lock, */void (*func)(void *ptr), void *ptr) 
+	{
+		rp_lock_t *rp_lock = (rp_lock_t *)lock;
+    	int head;
+
+
+	}
 		// void deleteNode(int key) {
 		// 	return numOps;
 		// }
