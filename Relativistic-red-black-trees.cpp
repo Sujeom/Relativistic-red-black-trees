@@ -145,6 +145,204 @@ class RealRBT {
 			return prevNode->val;
 		}
 
+
+		bool deleteN(Node<T> *root, int key) {
+			if(root->key > key) {
+				if(root->left == NULL) {
+					return false;
+				}
+				else{
+					root = root->left;
+					return deleteN(root, key);
+				}
+			
+
+				return placeNode(root->left, newNode);
+			}
+			else if(root->key < key)
+			{
+				if(root->right == NULL) {
+					return false;
+				}
+				else{
+					root = root->right;
+				}
+				return placeNode(root->right, newNode);
+			}
+			else{//we found the node to be deleted
+				
+				//the case that the node to be deleted is a 
+				//leaf node so it is just a simple delete
+				if(root->left == NULL && root->right == NULL)
+				{
+					return deleteNoChild(root);
+				}
+				else if(deleteOneChild(root))
+				{//when there is at least one child connected to the node that is going to be deleted
+					return true;
+				}
+				else
+				{//when the node to be deleted has two children
+					deleteTwoChildren(root);
+					return true;
+				}
+			}
+
+		}
+
+		bool deleteNoChild(Node<T> root)
+		{
+			if(root->parent->left == root)
+			{
+						root->parent->left = null;
+			}
+			else 
+			{
+						root->parent->right = null;
+			}
+
+			return true;
+		}
+
+		bool deleteOneChild(Node<T> root)
+		{
+			if(root->left == NULL && root->right != NULL)
+				{
+					if(root->parent->left == root)
+					{
+						redBlackDelete(root, root->right);
+						root->parent->left = root->right;
+					}
+					else 
+					{
+						root->parent->right = root->right;
+					}
+
+					return true;
+				}
+				else if( root->left != NULL && root->right == NULL)
+				{
+					if(root->parent->left == root)
+					{
+						root->parent->left = root->left;
+					}
+					else 
+					{
+						root->parent->left = root->right;
+					}
+					return true;
+				}
+
+			return false;
+		}
+
+		bool deleteTwoChildren(Node<T> root)
+		{
+			Node<T> temp = root->right;
+
+			while(temp->left != NULL)
+				temp = temp->left;
+			
+			if(root->parent->left == root)
+			{
+						root->parent->left = temp;
+						
+			}
+			else 
+			{
+						root->parent->right = temp;
+			}
+
+			temp->left = root->left;
+		
+			return true;
+		}
+
+		void redBlackDelete(Node<T> root, Node<T> replace)
+		{
+			
+			//if the replacement is NULL it does not matter whatever we do
+			//because the replacement of root will be the color black
+			if(replace == NULL && root->color == RED)
+			{
+				//we will return because nothing needs to be done.
+				return;
+			}
+			//if the two nodes are both different colors
+			else if(root->color != replace->color)
+			{			
+				replace->color = BLACK;
+			}
+			//both of the nodes are black 
+			else
+			{
+				Node<T> doubleBlackNode, sibling;
+				bool isLeft = false;
+
+				if(root->parent->left == root)
+				{
+					sibling = root->parent->right;
+					isLeft = true;
+				}
+				else 
+					sibling = root->parent->left;
+					
+
+
+				//case 1 where the replace node is NULL
+				if(replace == NULL)
+				{
+					doubleBlackNode = NULL;
+
+					if(isLeft)
+					{
+						if(sibling == NULL)
+						{
+
+						}
+						else if(sibling == BLACK)
+						{
+							if(sibling->left != NULL && sibling->right != NULL)
+							{
+								if(sibling->left == RED || sibling->right->color == RED)
+								{
+
+								}
+							}
+							
+							else if(sibling->left != NULL)
+							{
+								if(sibling->left->color == RED)
+								{
+								}
+							}
+							else
+							{
+								if(sibling->right->color == RED)
+								{
+								}
+							}
+						}
+					}
+					else 
+					{
+						root->parent->right = root->right;
+					}
+
+				}
+				//case 2
+				else if()
+				{
+
+				}
+			}
+		}
+
+		//If sibling root is black and at least one of sibling’s children is red
+		void case1()
+		{
+
+		}
 		// void deleteNode(int key) {
 		// 	return numOps;
 		// }
