@@ -32,15 +32,6 @@ class Node {
 			color = BLACK;
 			left = NULL, right = NULL, parent = NULL;
 		}
-w
-		//the node copy function needed for the 
-		//opereations needed withing the paper
-		//DO I GET IT FROM THE NODE BANK???????
-		//BLUWWWAAAAAA
-		Node<T>* getCopy()
-		{
-			return new Node<T>(key, val);
-		}
 };
 
 // RRBT definition
@@ -224,31 +215,29 @@ class RealRBT {
 		return sibling(p);
 	}
 
-	void rotate_left(Node<T>* root) 
-	{
-		Node<T>* temp = root->right;
-		
-		assert(temp->left != NULL && temp->right != NULL); 
+	void rotate_left(Node<T>* root) {
+	Node<T>* temp = root->right;
+	
+	assert(temp->left != NULL && temp->right != NULL); 
 
-		root->right = temp->left;
-		temp->left = root;
-		temp->parent = root->parent;
-		root->parent = temp;
-		// (the other related parent and child links would also have to be updated)
+	root->right = temp->left;
+	temp->left = root;
+	temp->parent = root->parent;
+	root->parent = temp;
+	// (the other related parent and child links would also have to be updated)
 	
 	}
 
-	void rotate_right(Node<T>* root)
-	{
-		Node<T>* temp = root->left;
-		
-		assert(temp->left != NULL && temp->right != NULL); // since the leaves of a red-black tree are empty, they cannot become internal nodes
-		
-		root->left = temp->right;
-		temp->right = root;
-		temp->parent = root->parent;
-		root->parent = temp;
-		// (the other related parent and child links would also have to be updated)
+	void rotate_right(Node<T>* root) {
+	Node<T>* temp = root->left;
+	
+	assert(temp->left != NULL && temp->right != NULL); // since the leaves of a red-black tree are empty, they cannot become internal nodes
+	
+	root->left = temp->right;
+	temp->right = root;
+	temp->parent = root->parent;
+	root->parent = temp;
+	// (the other related parent and child links would also have to be updated)
 	}
 
 	void replace(Node<T> *root, Node<T> *child)
