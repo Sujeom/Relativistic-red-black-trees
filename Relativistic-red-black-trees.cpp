@@ -148,10 +148,6 @@ class RealRBT {
 			return prevNode->val;
 		}
 
-<<<<<<< HEAD
-
-=======
->>>>>>> db46a3a322991f36a8ab03039932b88c637968ba
 		bool deleteN(Node<T> *root, int key) {
 			if(root->key > key) {
 				if(root->left == NULL) {
