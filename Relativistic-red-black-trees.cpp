@@ -287,7 +287,7 @@ class RealRBT {
 			
 			//variables needed to follow the rules for 
 			//a RB tree
-			Node<T> *doubleBlackNode, *sibling, *p, *s, *r, *u;
+			Node<T> *doubleBlackNode, *sibling, *p, *s, *r, *u, *childL, *childR;
 			
 			bool isLeft = false;
 
@@ -307,7 +307,41 @@ class RealRBT {
 			p = root->parent;
 			doubleBlackNode = NULL;
 
-			int rotationCase = getR(s, r, isLeft);
+			childL = sibling->left;
+			childR = sibling->right;
+
+			if(childL == NULL && childR == NULL)
+			{
+
+			}
+
+			int rotationCase = getR(sibling, r, isLeft);
+
+
+
+			if(rotationCase > -1)
+			{
+
+			}
+			else if(rotationCase == -1)
+			{//the case where both children are BLACK and the S is also black
+				s->color = RED;
+			}
+			else if(sibling->color == BLACK && sibling->left == BLACK && sibling->right==BLACK)
+			{
+				s->color = RED;
+			}
+			else if(sibling->color == RED)
+			{
+				if(isLeft)
+				{//this will be a left rotation
+
+				}
+				else
+				{//this will be a right rotaion.
+
+				}
+			}
 
 			
 		}
@@ -347,23 +381,44 @@ class RealRBT {
 				}
 				else
 				{
-					if(s->left->color == RED)
+					if(isLeft)
 					{
-						//this will be the RL case
+						if(s->left->color == RED)
+						{
+							//this will be the RL case
+							r = s->left;
+							return 2;
+							
+						}
+
+					}
+
+				}
+			}
+			else if(s->right != NULL)
+			{
+				if(isLeft)
+				{
+					if(s->left->color == RED)
+					{//this will be the RL case
 						r = s->left;
-						return 3;
-						
+						return 2;
 					}
 				}
-			}
-			else
-			{
-				if(s->right->color == RED)
-				{//this will be the RL case
-					r = s->right;
-					return 4;
+				else
+				{
+					if(s->right->color == RED)
+					{//this will be the RR case
+						r = s->right;
+						return 4;
+					}
+
 				}
 			}
+			else if(s->color == BLACK)//this is the case where the two children are both NULL
+				return -1;
+
+			return -2;
 		}
 
 		void lLCase(Node<T> *u, Node<T> *p, Node<T> *s, Node<T> *r)
