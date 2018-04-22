@@ -400,11 +400,53 @@ class RealRBT {
 
 	//this is for the case of the special delete of the repalcement node being the child of 
 	//the node to be deleted
-	void specialInterior()
+	void specialInterior(Node<T> *bNode)
 	{
+		Node<T> *cNode = next(bNode);
 
+		cNode->color = bNode->color;
+		cNode->left = bNode->left;
+		cNode->left->parent = cNode;
+
+		Node<T> eNode = bNode->parent;
+		if(eNode->left == bNode)
+			;//////rpPublish(eNode->left, cNode);
+		else
+			;//////rpPublish(eNode->right, cNode);
+		
+		rpFree(bNode);
 	}
 	
+
+	//thsi fucntion will handle the restucturing of the tree
+	void diagLeftRestruct(Node<T> *bNode)
+	{
+		Node<T> cNodePrime = cNode.getCopy();
+		cNodePrime->left = bNode->right;
+		cNodePrime->left->parent = cNodePrime;
+
+		///rpPublish(bNode->right, cNodePrime);
+		cNodePrime->prime = bNodePrime;
+
+		Node<T> *dNode = cNode->parent;
+
+		if(dNOde->left == cNode)
+			;////prPublish(dNode->left, bNode);
+		else
+			;//////rpPublish(dNode->right, bNode);
+
+		bNode->parent = dNode;
+
+		rpFree(cNode);
+
+	}
+
+	void zigLeftRestruct(Node<T> *bNode)
+	{
+		Node<T> *cPrime = cNode->getCopy();
+
+		
+	}
 	void rpFree(/*void *lock, */void (*func)(void *ptr), void *ptr) 
 	{
 		rp_lock_t *rp_lock = (rp_lock_t *)lock;
