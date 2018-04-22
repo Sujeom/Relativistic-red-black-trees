@@ -157,9 +157,6 @@ class RealRBT {
 					root = root->left;
 					return deleteN(root, key);
 				}
-			
-
-				return placeNode(root->left, newNode);
 			}
 			else if(root->key < key)
 			{
@@ -169,369 +166,183 @@ class RealRBT {
 				else{
 					root = root->right;
 				}
-				return placeNode(root->right, newNode);
 			}
 			else{//we found the node to be deleted
-				
-				//the case that the node to be deleted is a 
-				//leaf node so it is just a simple delete
-				if(root->left == NULL && root->right == NULL)
-				{
-					return deleteNoChild(root);
+					return oneChild(root);
 				}
-				else if(deleteOneChild(root))
-				{//when there is at least one child connected to the node that is going to be deleted
-					return true;
-				}
-				else
-				{//when the node to be deleted has two children
-					deleteTwoChildren(root);
-					return true;
-				}
-			}
-
 		}
 
-		bool deleteNoChild(Node<T> *root)
-		{
-			if(root->parent->left == root)
-			{
-						root->parent->left = null;
-			}
-			else 
-			{
-						root->parent->right = null;
-			}
-
-			return true;
-		}
-
-		bool deleteOneChild(Node<T> *root)
-		{
-			if(root->left == NULL && root->right != NULL)
-				{
-					if(root->parent->left == root)
-					{
-						redBlackDelete(root, root->right);
-						root->parent->left = root->right;
-					}
-					else 
-					{
-						root->parent->right = root->right;
-					}
-
-					return true;
-				}
-				else if( root->left != NULL && root->right == NULL)
-				{
-					if(root->parent->left == root)
-					{
-						root->parent->left = root->left;
-					}
-					else 
-					{
-						root->parent->left = root->right;
-					}
-					return true;
-				}
-
-			return false;
-		}
-
-		bool deleteTwoChildren(Node<T> *root)
-		{
-			Node<T> *temp = root->right;
-
-			while(temp->left != NULL)
-				temp = temp->left;
-			
-			if(root->parent->left == root)
-			{
-						root->parent->left = temp;
-						
-			}
-			else 
-			{
-						root->parent->right = temp;
-			}
-
-			temp->left = root->left;
 		
-			return true;
-		}
 
-		void redBlackDelete(Node<T> *root, Node<T> *replace)
+		
+	Node<T>* getParent(Node<T>* root) {
+		
+		return root->parent;
+	
+	}
+
+	Node<T>* getGrandparent(Node<T>* root) {
+		
+		Node<T>* p = parent(root);
+		
+		if (p == NULL)
+			return NULL; // No parent means no grandparent
+		
+		return parent(p);
+	}
+
+	Node<T>* getSibling(Node<T>* root) {
+		
+		Node<T>* p = parent(root);
+		
+		if (p == NULL)
+			return NULL; // No parent means no sibling
+		
+		if (root == p->left)
+			return p->right;
+		else
+			return p->left;
+	}
+
+	Node<T>* getUncle(Node<T>* root) {
+		
+		Node<T>* p = parent(root);
+		Node<T>* g = grandparent(root);
+		
+		if (g == NULL)
+			return NULL; // No grandparent means no uncle
+		
+		return sibling(p);
+	}
+
+	void rotate_left(Node<T>* root) {
+	Node<T>* temp = root->right;
+	
+	assert(temp->left != NULL && temp->right != NULL); 
+
+	root->right = temp->left;
+	temp->left = root;
+	temp->parent = root->parent;
+	root->parent = temp;
+	// (the other related parent and child links would also have to be updated)
+	
+	}
+
+	void rotate_right(Node<T>* root) {
+	Node<T>* temp = root->left;
+	
+	assert(temp->left != NULL && temp->right != NULL); // since the leaves of a red-black tree are empty, they cannot become internal nodes
+	
+	root->left = temp->right;
+	temp->right = root;
+	temp->parent = root->parent;
+	root->parent = temp;
+	// (the other related parent and child links would also have to be updated)
+	}
+
+	void replace(Node<T> *root, Node<T> *child)
+	{
+		child->parent = n->parent;
+
+		if(n == n->parent->left)
+			child->parent->left = child;
+		else
+			child->parent->right = child;
+	}
+
+	bool onChild(Node<T> *root)
+	{
+		Node<T>* temp = root->right == NULL && root->left == NULL? n->left:n->right;
+
+		replace(root, temp);
+
+		if(root->color == BLACK)
 		{
-			
-			//if the replacement is NULL it does not matter whatever we do
-			//because the replacement of root will be the color black
-			if(replace == NULL && root->color == RED)
-			{
-				//we will return because nothing needs to be done.
-				return;
-			}
-			//if the two nodes are both different colors
-			else if(root->color != replace->color)
-			{			
-				replace->color = BLACK;
-			}
-			//both of the nodes are black 
+			if(temp->color == RED)
+				temp->color = BLACK;
 			else
-			{
-				twoBlackNodes(root, replace);
-			}
+				dCase1(temp);
 		}
+		//free
 
-		void twoBlackNodes(Node<T> *root , Node<T> *replace)
+		return true;
+	}
+
+	//when the root node is the head of hte tree
+	//
+	void dCase1(Node<T> *root)
+	{
+		if(root->pareant != NULL)
+			dCase2(root);
+	}
+
+	void dCase2(Node<T> *root)
+	{
+		Node<T> *sibling = getSibling(root);
+
+		if(sibling->color == RED)
 		{
-			
-			//variables needed to follow the rules for 
-			//a RB tree
-			Node<T> *doubleBlackNode, *sibling, *p, *s, *r, *u, *childL, *childR;
-			
-			bool isLeft = false;
+			root->parent->color = RED;
+			sibling->color = BLACK;
 
-			//this is to get the palcement of the root node
-			//with respect to the parent
-			if(root->parent->left == root)
+			if(root==root->parent->left)
 			{
-				sibling = root->parent->right;
-				isLeft = true;
-			}
-			else 
-				sibling = root->parent->left;
-				
-			//if the the replace is NULL then it will be marked as a 
-			//double black node
-			u = replace;
-			p = root->parent;
-			doubleBlackNode = NULL;
-
-			childL = sibling->left;
-			childR = sibling->right;
-
-			if(childL == NULL && childR == NULL)
-			{
+				rotate_left(root->parent);
 
 			}
-
-			int rotationCase = getR(sibling, r, isLeft);
-
-
-
-			if(rotationCase > -1)
-			{
-
-			}
-			else if(rotationCase == -1)
-			{//the case where both children are BLACK and the S is also black
-				s->color = RED;
-			}
-			else if(sibling->color == BLACK && sibling->left == BLACK && sibling->right==BLACK)
-			{
-				s->color = RED;
-			}
-			else if(sibling->color == RED)
-			{
-				if(isLeft)
-				{//this will be a left rotation beause sibling is a right child
-					if()
-				}
-				else
-				{//this will be a left rotaion because sibling is a left child.
-					
-				}
-			}
-
-			
+			else
+				rotate_right(root->parent;)
 		}
 
-		//this will get the R value and also return the 
-		//type of rotation that shoud be applied
-		//RR: 1 
-		//RL: 2
-		//LL: 3
-		//LR: 4
-		int getR(Node<T> *s, Node<T> *r bool isLeft)
+		dCase3(root);
+	}
+
+
+	void dCase3(Node<T> *root)
+	{
+		Node<T> *sibling = getSibling(root);
+
+		if(n->parente->color == BLACK && sibling->color == BLACK && sibling->left->color == BLACK && sibling->right->color == BLACK)
 		{
-			if(s->left != NULL && s->right != NULL)
-			{
-				if(isLeft && s->right->color == RED)
-				{//this is the RR case
-					r = s->right;
-					return 1;
-				}	
-				else if(isLeft && s->left->color == RED)
-				{//thsi is the RL case
-					r = s->left;
-					return 2;
-				}	
-			}
-			else if(s->left != NULL)
-			{
-				if(isLeft)
-				{
-					if(s->left->color == RED)
-					{
-						//this will be the LL case
-						r = s->left;
-						return 3;
-						
-					}
-				}
-				else
-				{
-					if(isLeft)
-					{
-						if(s->left->color == RED)
-						{
-							//this will be the RL case
-							r = s->left;
-							return 2;
-							
-						}
-
-					}
-
-				}
-			}
-			else if(s->right != NULL)
-			{
-				if(isLeft)
-				{
-					if(s->left->color == RED)
-					{//this will be the RL case
-						r = s->left;
-						return 2;
-					}
-				}
-				else
-				{
-					if(s->right->color == RED)
-					{//this will be the RR case
-						r = s->right;
-						return 4;
-					}
-
-				}
-			}
-			else if(s->color == BLACK)//this is the case where the two children are both NULL
-				return -1;
-
-			return -2;
+			sibling->color == RED;
+			dCase1(root->parent)
 		}
+		else
+			dCase4(root);
+	}
 
-		void lLCase(Node<T> *u, Node<T> *p, Node<T> *s, Node<T> *r)
+	void dCase4(Node<T> *root)
+	{
+		Node<T> *sibling = getSibling(root);
+
+		if(root->parent->color == RED && sibling->color == BLACK && sibling->left->color == BLACK && sibling->right->color == BLACK)
 		{
-
+			sibling->color = RED;
+			root->parent->color = BLACK;
 		}
+		else 
+			dCase5(root);
+	}
 
-		void lRCase(Node<T> u, Node<T> p, Node<T> s, Node<T> r)
+	void dCase6(Node<T> *root)
+	{
+		Node<T> *sibling = getSibling(root);
+
+		sibling->color = root->parent->color;
+		root->parent->color = BLACK;
+
+		if(root == root->paent->left)
 		{
-
+			sibling->right->color = BLACK;
+			rotate_left(root->parent);
 		}
-
-		void rLCase(Node<T> u, Node<T> p, Node<T> s, Node<T> r)
+		else
 		{
-
+			sibling->left->color = BLACK;
+			rotate_right(root->parent);
 		}
-
-		void rRCase(Node<T> u, Node<T> p, Node<T> s, Node<T> r)
-		{
-
-		}
-
-
-		/*///////////////////////////////////////////////////
-			PLACEHOLDER CODE FOR LATER
-
-			//variables needed to follow the rules for 
-				//a RB tree
-				Node<T> doubleBlackNode, sibling, p, s, r, u;
-				
-				bool isLeft = false;
-
-				//this is to get the palcement of the root node
-				//with respect to the parent
-				if(root->parent->left == root)
-				{
-					sibling = root->parent->right;
-					isLeft = true;
-				}
-				else 
-					sibling = root->parent->left;
-					
-
-				//case 1 where the replace node is NULL
-				if(replace == NULL)
-				{
-					//if the the replace is NULL then it will be marked as a 
-					//double black node
-					u = replace;
-					p = root->parent;
-					doubleBlackNode = NULL;
-
-					//if the root node is a left node we will then check its sibling and determin if the next step
-					//will the be process of a right right delete or a right left delete
-					if(isLeft)
-					{
-						if(sibling == NULL)
-						{
-							
-						}
-						else if(sibling == BLACK)
-						{
-							//this is the case for a Right right delete
-							if(sibling->left != NULL && sibling->right != NULL)
-							{
-
-								//now we can determin r
-								//r will be the right child because that will be the easiest to delete
-								r = sibling->right;
-
-								if(sibling->parent->right->val == sibling->val || sibling->left-> == RED && sibling->right->color == RED)
-								{
-
-								}
-							}
-							
-							else if(sibling->left != NULL)
-							{
-								if(sibling->left->color == RED)
-								{
-								}
-							}
-							else
-							{
-								if(sibling->right->color == RED)
-								{
-
-								}
-							}
-						}
-					}
-					else 
-					{
-						root->parent->right = root->right;
-					}
-
-				}
-				//case 2
-				else if()
-				{
-
-				}
-
-
-
-
-
-
-
-
-
-
-		*///////////////////////////////////
+	}
+		
 		// void deleteNode(int key) {
 		// 	return numOps;
 		// }
