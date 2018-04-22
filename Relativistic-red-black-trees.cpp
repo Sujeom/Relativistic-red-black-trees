@@ -418,7 +418,8 @@ class RealRBT {
 	}
 	
 
-	//thsi fucntion will handle the restucturing of the tree
+	//thsi function will handle the restucturing of the tree
+	//with left diagnal
 	void diagLeftRestruct(Node<T> *bNode)
 	{
 		Node<T> cNodePrime = cNode.getCopy();
@@ -431,7 +432,7 @@ class RealRBT {
 		Node<T> *dNode = cNode->parent;
 
 		if(dNOde->left == cNode)
-			;////prPublish(dNode->left, bNode);
+			;////rpPublish(dNode->left, bNode);
 		else
 			;//////rpPublish(dNode->right, bNode);
 
