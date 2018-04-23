@@ -258,6 +258,19 @@ class RealRBT {
 			}
 		}
 
+		Node<T> *lookup(int key) {
+			Node<T> *temp = this->root;
+
+			while(temp != NULL && key != temp->key) {
+				if(key > temp->key)
+					temp = temp->right;
+				else
+					temp = temp->left;
+			}
+
+			return temp;
+		}
+
 		// Leftmost node in right subtree
 		Node<T> *next(Node<T> *currentNode) {
 			return leftmost(currentNode->right);
