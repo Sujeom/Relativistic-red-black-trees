@@ -3,49 +3,49 @@
 #include <atomic>
 #include <vector>
 #include <string>
-// #include <queue>
+#include <mutex>
+#include <assert.h>
 
-#define TOTAL_THREADS 5
-#define MAX_NUM_NODES 10000
+#define TOTAL_THREADS 	5
+#define MAX_NUM_NODES 	10000
+#define NUM_READERS 		10
+#define EPOCH 					200
 
-#define BLACK 0
-#define RED 1
-#define DOUBLEBLACK 2
+// RESTRUCTURE CASES
+#define DIAG_LEFT 			1
+#define ZIG_LEFT 				2
+#define DIAG_RIGHT 			3
+#define ZIG_RIGHT				4
+
+#define BLACK 					0
+#define RED 						1
 
 using namespace std;
+
+// CONVENTION:
+// aNode = currNode
+// bNode = parent
+// cNode = grandparent
 
 // Node definition
 template <class T>
 class Node {
 	public:
 		// Member variables
-		T *val;
+		T val;
 		int key;
-		bool doubleB;
-		int color;
-		long index;
-		Node *left, *right, *parent;
+		bool color;
+		Node<T> *left, *right, *parent;
+		Node<T> *backup;
 
-		Node(int _key, T *_val) {
-			val = _val;
+		Node(int _key) {
 			key = _key;
-			doubleB = false;
 			color = BLACK;
-			index = _index;
-			left = NULL, right = NULL, parent = NULL;
+			left = NULL, right = NULL, parent = NULL, backup = NULL;
 		}
-w
-		//the node copy function needed for the 
-		//opereations needed withing the paper
-		//DO I GET IT FROM THE NODE BANK???????
-		//BLUWWWAAAAAA
-		Node<T>* getCopy()
-		{
-			Node<T> *n = new Node<T>(key, val);
-			
-			memcpy(n, *this, sizeof(Node<T>));
 
-			return n;
+		Node<T> *getCopy() {
+			return backup;
 		}
 };
 
@@ -55,21 +55,50 @@ class RealRBT {
 	private:
 		vector<Node<T>*> nodeBank;
 		atomic_int nodeBankIndex{0};
+		int *readers;
+		int reader;
+		atomic_int epoch{EPOCH};
 
 	public:
 		atomic<Node<T>*> root;
-		atomic_int numOps{0};
 		atomic_int size{0};
+		mutex *lock;
 
 		RealRBT() {
 			root = NULL;
+			lock = new mutex();
+			readers = new int[NUM_READERS];
 
-			for(int i = 0; i < MAX_NUM_NODES; i++)
-				nodeBank.push_back(new Node<T>(0,  new T()));
+			for(int i = 0; i < MAX_NUM_NODES; i++) {
+				Node<T> *n = new Node<T>(0);
+				n->backup = new Node<T>(0);
+
+				nodeBank.push_back(n);
+			}
 		}
 
 		Node<T> *getNewNode() {
 			return nodeBank[(nodeBankIndex++) % MAX_NUM_NODES];
+		}
+
+		// RP read primitives
+		void startRead() {
+			readers[reader] = EPOCH;
+		}
+
+		void endRead() {
+			readers[reader] = 0;
+		}
+
+		// RP write primitives
+		void waitForReaders() {
+			int currEpoch;
+
+			this->epoch++;
+			currEpoch = this->epoch;
+
+			for(int i = 0; i < NUM_READERS; i++)
+				while(readers[i] != 0 && readers[i] < currEpoch);
 		}
 
 		Node<T> *insert(T x) {
@@ -196,441 +225,414 @@ class RealRBT {
 			g->color = RED;
 
 		}
-		// this function will return false if the parent is red and true if the parent is black
-		bool placeNode(Node<T> *root, Node<T> *newNode) {
-			if(root->key > newNode->key) {
-				if(root->left == NULL) {
-					root->left = newNode;
-					newNode->parent = root;
-					return checkUncle(root);
-				}
+  
+  // this function will return false if the parent is red and true if the parent is black
+  bool placeNode(Node<T> *root, Node<T> *newNode) {
+    if(root->key > newNode->key) {
+      if(root->left == NULL) {
+        root->left = newNode;
+        newNode->parent = root;
+        return checkUncle(root);
+      }
+  }
+        
+// Get the leftmost node from the given node
+		Node<T> *leftmost(Node<T> *node) {
+			if(node == NULL)
+				return NULL;
+      
+			Node<T> *temp = node;
+			while(temp->left != NULL)
+				temp = temp->left;
 
-				return placeNode(root->left, newNode);
-			}
-
-			if(root->right == NULL) {
-				root->right = newNode;
-				newNode->parent = root;
-				return root == BLACK? true:false;
-			}
-
-			return placeNode(root->right, newNode);
+			return temp;
 		}
 
-		bool checkUncle(Node<T> *parent) {
-			if(parent->parent == NULL) {
-				return false;
-			}
+		// Get the rightmost node from the given node
+		Node<T> *rightmost(Node<T> *node) {
+			if(node == NULL)
+				return NULL;
 
-			if(parent->parent->left != NULL) {
-				if(parent->parent->left->color == BLACK)
-					return false;
+			Node<T> *temp = node;
+			while(temp->right != NULL)
+				temp = temp->right;
 
-				return true;
-			}
-
-			if(parent->parent->right != NULL) {
-				if(parent->parent->right->color == BLACK)
-					return false;
-
-				return true;
-			}
-
-			return false;
+			return temp;
 		}
 
+		T *first(int reader) {
+			Node<T> *node = NULL;
+			T *val = NULL;
 
-		T lookup(int key) {
-			Node<T> *newNode;
-			Node<T> *prevNode;
+			startRead();
 
-			do {
-				prevNode = root;
+			node = leftmost(this->root);
 
-				if(prevNode == NULL) {
-					return NULL;
-				}
+			if(node == NULL)
+				return NULL;
 
-				newNode = prevNode->next;
+			val = node->val;
 
-				numOps += 1;
+			endRead();
 
-			} while(!root.compare_exchange_weak(prevNode, newNode, std::memory_order_release, std::memory_order_relaxed));
-
-			size -= 1;
-
-			return prevNode->val;
+			return val;
 		}
 
-		bool deleteN(Node<T> *root, int key) {
-			if(root->key > key) {
-				if(root->left == NULL) {
-					return false;
-				}
-				else{
-					root = root->left;
-					return deleteN(root, key);
-				}
-			}
-			else if(root->key < key)
-			{
-				if(root->right == NULL) {
-					return false;
-				}
-				else{
-					root = root->right;
-				}
-			}
-			else{//we found the node to be deleted
-					
-					//this is form the sequential solution
-					//return oneChild(root);
+		T *last() {
+			Node<T> *node = NULL;
+			T *val = NULL;
 
-					if(root->left == NULL && root->right == NULL)
+			startRead(reader);
 
-				}
+			node = rightmost(this->root);
+
+			if(node == NULL)
+				return NULL;
+
+			val = node->val;
+
+			endRead(reader);
+
+			return val;
 		}
 
-		
+		// Performs a regular BST style insertion sequentially
+		bool bstInsert(Node<T> *newNode) {
+			if(newNode == NULL)
+				return this->root;
 
-		
-	Node<T>* getParent(Node<T>* root) {
-		
-		return root->parent;
-	
-	}
+			Node<T> *temp = this->root;
 
-	Node<T>* getGrandparent(Node<T>* root) {
-		
-		Node<T>* p = parent(root);
-		
-		if (p == NULL)
-			return NULL; // No parent means no grandparent
-		
-		return parent(p);
-	}
+			while(temp != NULL) {
 
-	Node<T>* getSibling(Node<T>* root) {
-		
-		Node<T>* p = parent(root);
-		
-		if (p == NULL)
-			return NULL; // No parent means no sibling
-		
-		if (root == p->left)
-			return p->right;
-		else
-			return p->left;
-	}
+				if(newNode->key == temp->key)
+					return false;
+				else if(newNode->key > temp->key)
+					temp = temp->right;
+				else
+					temp = temp->left;
+			}
 
-	Node<T>* getUncle(Node<T>* root) {
-		
-		Node<T>* p = parent(root);
-		Node<T>* g = grandparent(root);
-		
-		if (g == NULL)
-			return NULL; // No grandparent means no uncle
-		
-		return sibling(p);
-	}
-
-	void rotate_left(Node<T>* root) 
-	{
-		Node<T>* temp = root->right;
-		
-		assert(temp->left != NULL && temp->right != NULL); 
-
-		root->right = temp->left;
-		temp->left = root;
-		temp->parent = root->parent;
-		root->parent = temp;
-		// (the other related parent and child links would also have to be updated)
-	
-	}
-
-	void rotate_right(Node<T>* root)
-	{
-		Node<T>* temp = root->left;
-		
-		assert(temp->left != NULL && temp->right != NULL); // since the leaves of a red-black tree are empty, they cannot become internal nodes
-		
-		root->left = temp->right;
-		temp->right = root;
-		temp->parent = root->parent;
-		root->parent = temp;
-		// (the other related parent and child links would also have to be updated)
-	}
-
-	void replace(Node<T> *root, Node<T> *child)
-	{
-		child->parent = n->parent;
-
-		if(n == n->parent->left)
-			child->parent->left = child;
-		else
-			child->parent->right = child;
-	}
-
-	bool onChild(Node<T> *root)
-	{
-		Node<T>* temp = root->right == NULL && root->left == NULL? n->left:n->right;
-
-		replace(root, temp);
-
-		if(root->color == BLACK)
-		{
-			if(temp->color == RED)
-				temp->color = BLACK;
+			if(newNode->key >= temp->parent->key)
+				temp->right = newNode;
 			else
-				dCase1(temp);
+				temp->left = newNode;
+
+			return true;
 		}
-		//free
 
-		return true;
-	}
+		Node<T> *sibling(Node<T> *node) {
+			if (node->parent->left == node)
+        return node->parent->right;
+    	else
+        return node->parent->left;
+		}
 
-	//when the root node is the head of hte tree
-	//
-	void dCase1(Node<T> *root)
-	{
-		if(root->pareant != NULL)
-			dCase2(root);
-	}
+		int restructure(Node<T> *node, Node<T> *parent, Node<T> *grandpa,
+										Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
 
-	void dCase2(Node<T> *root)
-	{
-		Node<T> *sibling = getSibling(root);
-
-		if(sibling->color == RED)
-		{
-			root->parent->color = RED;
-			sibling->color = BLACK;
-
-			if(root==root->parent->left)
-			{
-				rotate_left(root->parent);
-
+			if(grandpa->left == parent && parent->left == node) {
+				diagLeftRestruct(node, parent, grandpa);
+				return DIAG_LEFT;
 			}
+			else if(grandpa->left == parent && parent->right == node) {
+				zigLeftRestruct(node, parent, grandpa);
+				return ZIG_LEFT;
+			}
+			else if(parent->right == node && grandpa->right == parent) {
+				diagRightRestruct(node, parent, grandpa);
+				return DIAG_RIGHT;
+			}
+			else {
+				zigRightRestruct(node, parent, grandpa);
+				return ZIG_RIGHT;
+			}
+
+			return 0;
+		}
+
+		bool recolor(Node<T> *node) {
+			Node<T> *parent = node->parent;
+			Node<T> *grandpa = parent->parent;
+			Node<T> *uncle = sibling(parent);
+
+			if(uncle == NULL || uncle->color == BLACK) {
+				restructure(node, parent, grandpa);
+				node->color = RED;
+				parent->color = BLACK;
+				grandpa->color = RED;
+			}
+			else if(uncle != NULL && uncle->color == RED) {
+				uncle->color = BLACK;
+				parent->color = BLACK;
+
+				if(grandpa->parent != NULL)
+					grandpa->color = RED;
+
+				if(grandpa->parent != NULL && grandpa->parent->color == RED)
+					recolor(grandpa);
+			}
+		}
+
+		bool insert(int key, T *val) {
+			Node<T> *newNode = getNewNode();
+			newNode->val = val;
+			newNode->key = key;
+
+			// If empty tree
+			if(this->root == NULL) {
+				newNode->color = BLACK;
+				this->root = newNode;
+			}
+			else {
+				bool success = bstInsert(newNode);
+
+				if(!success)
+					return false;
+
+				if(newNode->parent->color == RED)
+					recolor(newNode);
+			}
+
+			return true;
+		}
+
+		Node<T> *lookupHelper(int key) {
+			Node<T> *temp = this->root;
+
+			while(temp != NULL && key != temp->key) {
+				if(key > temp->key)
+					temp = temp->right;
+				else
+					temp = temp->left;
+			}
+
+			return temp;
+		}
+
+		T *lookup(int key) {
+			Node<T> *found = lookupHelper(key);
+
+			if(found == NULL)
+				return NULL;
+
+			return found->val;
+		}
+
+		// Leftmost node in right subtree
+		Node<T> *next(Node<T> *currentNode) {
+			return leftmost(currentNode->right);
+		}
+
+		// Rightmost node in left subtree
+		void *previous(Node<T> *currentNode) {
+			return rightmost(currentNode->left);
+		}
+
+		void swap(Node<T> *bNode) {
+			Node<T> *cNode = next(bNode);
+			Node<T> *cPrimeNode = cNode->getCopy();
+
+			cPrimeNode->color = bNode->color;
+
+			cPrimeNode->left = bNode->left;
+			cPrimeNode->left->parent = cPrimeNode;
+
+			cPrimeNode->right = bNode->left;
+			cPrimeNode->right->parent = cPrimeNode;
+
+			Node<T> *fNode = bNode->parent;
+			cPrimeNode->parent = fNode;
+
+			if(fNode->left == bNode)
+				;// rpPublish(fNode->left, cPrimeNode);
 			else
-				rotate_right(root->parent;)
+				;// rpPublish(fNode->right, cPrimeNode);
+
+			rpFree(bNode);
+
+			waitForReaders();
+
+			Node<T> *eNode = cNode->parent;
+			rpPublish(eNode->left, cNode->right);
+			cNode->right->parent = eNode;
+
+			rpFree(cNode);
 		}
 
-		dCase3(root);
-	}
+		void specialSwap(Node<T> *bNode) {
+			Node<T> *cNode = next(bNode);
 
+			cNode->color = bNode->color;
+			cNode->left = bNode->left;
+			cNode->left->parent = cNode;
 
-	void dCase3(Node<T> *root)
-	{
-		Node<T> *sibling = getSibling(root);
+			Node<T> *eNode = bNode->parent;
 
-		if(n->parente->color == BLACK && sibling->color == BLACK && sibling->left->color == BLACK && sibling->right->color == BLACK)
-		{
-			sibling->color == RED;
-			dCase1(root->parent)
+			if(eNode->left == bNode)
+				;// rpPublish(eNode->left, cNode);
+			else
+				;// rpPublish(eNode->right, cNode);
+
+			rpFree(bNode);
 		}
-		else
-			dCase4(root);
-	}
 
-	void dCase4(Node<T> *root)
-	{
-		Node<T> *sibling = getSibling(root);
+		// This a function that will delete the node that has two children
+		void interiorDelete(Node<T> *nodeToDelete) {
+			Node<T> *cNode = next(nodeToDelete);
 
-		if(root->parent->color == RED && sibling->color == BLACK && sibling->left->color == BLACK && sibling->right->color == BLACK)
-		{
-			sibling->color = RED;
-			root->parent->color = BLACK;
-		}
-		else 
-			dCase5(root);
-	}
+			Node<T> *cPrimeNode = cNode->getCopy();
 
-	void dCase6(Node<T> *root)
-	{
-		Node<T> *sibling = getSibling(root);
+			cPrimeNode->color = nodeToDelete->color;
 
-		sibling->color = root->parent->color;
-		root->parent->color = BLACK;
+			cPrimeNode->left = nodeToDelete->left;
+			cPrimeNode->left->parent = cPrimeNode;
 
-		if(root == root->paent->left)
-		{
-			sibling->right->color = BLACK;
-			rotate_left(root->parent);
-		}
-		else
-		{
-			sibling->left->color = BLACK;
-			rotate_right(root->parent);
-		}
-	}
+			cPrimeNode->right = nodeToDelete->right;
+			cPrimeNode->right->parent = cPrimeNode;
 
-	//this a functtion that will delete the nod ethat has two children
-	void interiorDelete(Node<T> *nodeToDelete)
-	{
-		Node<T> *cNode = next(nodeToDelete);
+			Node<T> *fNode = nodeToDelete->parent;
+			cPrimeNode->parent = fNode;
 
-		Node<T> *cPrimeNode = cNode.getCopy();
-
-		cPrimeNode->color = nodeToDelete->color;
-
-		cPrimeNode->left = nodeToDelete->left;
-		cPrimeNode->left->parent = cPrimeNode;
-
-		cPrimeNode->right = nodeToDelete->right;
-		cPrimeNode->right->parent = cPrimeNode;
-
-		Node<T> *fNode = nodeToDelete->parent;
-		cPrimeNode->parent = fNode;
-
-		if(fNode->left == nodeToDelete)
-			//TODO create this fuction
-			;////rpPublish(fNode->left, cPrimeNode);
-		else 
+			if(fNode->left == nodeToDelete)
+				//TODO create this fuction
+				;////rpPublish(fNode->left, cPrimeNode);
+			else
+				//TODO crate this fuction
+				;///rpPublish(fNode->right, cPrimeNode);
 			//TODO crate this fuction
-			;///rpPublish(fNode->right, cPrimeNode);
-		//TODO crate this fuction
-		////rpFree(nodeToDelete);
+			////rpFree(nodeToDelete);
 
-		////waitForReaders();
+			////waitForReaders();
 
-		Node<T> *eNode = c->parent;
-		//TODO crate this fuction
-		/////////rpPublish(eNode->left, cNode->right);
-		cNode->right->parent = eNode;
+			Node<T> *eNode = cNode->parent;
+			//TODO crate this fuction
+			/////////rpPublish(eNode->left, cNode->right);
+			cNode->right->parent = eNode;
 
-		//TODO crate this fuction
-		rpFree(cNode);
-	}
+			//TODO crate this fuction
+			rpFree(cNode);
+		}
 
-	//this is for the case of the special delete of the repalcement node being the child of 
-	//the node to be deleted
-	void specialInterior(Node<T> *b)
-	{
-		Node<T> *cNode = next(bNode);
+		// This is for the case of the special delete of the repalcement node being the child of
+		// the node to be deleted
+		void specialInteriorDelete(Node<T> *bNode) {
+			Node<T> *cNode = next(bNode);
 
-		cNode->color = bNode->color;
-		cNode->left = bNode->left;
-		cNode->left->parent = cNode;
+			cNode->color = bNode->color;
+			cNode->left = bNode->left;
+			cNode->left->parent = cNode;
 
-		Node<T> eNode = bNode->parent;
-		if(eNode->left == bNode)
-			;//////rpPublish(eNode->left, cNode);
-		else
-			;//////rpPublish(eNode->right, cNode);
-		
-		rpFree(bNode);
-	}
-	
+			Node<T> *eNode = bNode->parent;
+			if(eNode->left == bNode)
+				;//////rpPublish(eNode->left, cNode);
+			else
+				;//////rpPublish(eNode->right, cNode);
 
-	//thsi function will handle the restucturing of the tree
-	//with left diagnal
-	void diagLeftRestruct(Node<T> *bNode)
-	{
-		Node<T> cNodePrime = cNode.getCopy();
-		cNodePrime->left = bNode->right;
-		cNodePrime->left->parent = cNodePrime;
-
-		///rpPublish(bNode->right, cNodePrime);
-		cNodePrime->parent = bNode;
-
-		dNode = cNode->parent;
-
-		if(dNOde->left == cNode)
-			;////rpPublish(dNode->left, bNode);
-		else
-			;//////rpPublish(dNode->right, bNode);
-
-		bNode->parent = dNode;
-
-		rpFree(cNode);
-
-	}
-
-	void diagRightRestruct(Node<T> *bNode)
-	{
-		Node<T> cNodePrime = cNode.getCopy();
-		cNodePrime->right = bNode->left;
-		cNodePrime->right->parent = cNodePrime;
-
-		///rpPublish(bNode->right, cNodePrime);
-		cNodePrime->parent = bNode;
-
-		dNode = cNode->parent;
-
-		if(dNOde->right == cNode)
-			;////rpPublish(dNode->right, bNode);
-		else
-			;//////rpPublish(dNode->left, bNode);
-
-		bNode->parent = dNode;
-
-		rpFree(cNode);
-
-	}
-
-	void zigLeftRestruct(Node<T> *bNode)
-	{
-		Node<T> *aPrime = aNode.getCopy();
-		aPrime->right = B->left;
-		aPrime->right->parent = aPrime;
-
-		//rpPublish(B->left, aPrime);
-		aPrime->parent = B;
-
-		cPrime = C.getCopy();
-		cPrime->left = B->right;
-		cPrime->left->parent = cPrime;
-
-		rpPublish(B->right, cPrime);
-		cPrime->parent = B;
-
-		D = C->parent;
-
-		if(D->left == C)
-			;//rpPubllish(D->left, B);
-		else
-			;//rpPublish(D->right, B);
-
-		rpFree(A);
-		rpFree(C);
-		
-	}
-
-	void zigRightRestruct(Node<T> *bNode)
-	{
-		Node<T> *aPrime = aNode.getCopy();
-		aPrime->left = B->right;
-		aPrime->left->parent = aPrime;
-
-		//rpPublish(B->left, aPrime);
-		aPrime->parent = B;
-
-		cPrime = C.getCopy();
-		cPrime->right = B->left;
-		cPrime->right->parent = cPrime;
-
-		rpPublish(B->left, cPrime);
-		cPrime->parent = B;
-
-		D = C->parent;
-
-		if(D->right == C)
-			;//rpPubllish(D->right, B);
-		else
-			;//rpPublish(D->left, B);
-
-		rpFree(A);
-		rpFree(C);
-		
-	}
-
-	void rpFree(/*void *lock, */void (*func)(void *ptr), void *ptr) 
-	{
-		rp_lock_t *rp_lock = (rp_lock_t *)lock;
-    	int head;
+			rpFree(bNode);
+		}
 
 
-	}
+		// This function will handle the restucturing of the tree
+		// with left diagnal
+		void diagLeftRestruct(Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
+			Node<T> *cNodePrime = cNode->getCopy();
+
+			cNodePrime->left = bNode->right;
+			cNodePrime->left->parent = cNodePrime;
+
+			///rpPublish(bNode->right, cNodePrime);
+			cNodePrime->parent = bNode;
+
+			Node<T> *dNode = cNode->parent;
+
+			if(dNode->left == cNode)
+				;////rpPublish(dNode->left, bNode);
+			else
+				;//////rpPublish(dNode->right, bNode);
+
+			bNode->parent = dNode;
+
+			rpFree(cNode);
+		}
+
+		void diagRightRestruct(Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
+			Node<T> *cNodePrime = cNode->getCopy();
+
+			cNodePrime->right = bNode->left;
+			cNodePrime->right->parent = cNodePrime;
+
+			///rpPublish(bNode->left, cNodePrime);
+			cNodePrime->parent = bNode;
+
+			Node<T> *dNode = cNode->parent;
+
+			if(dNode->right == cNode)
+				;////rpPublish(dNode->right, bNode);
+			else
+				;//////rpPublish(dNode->left, bNode);
+
+			bNode->parent = dNode;
+
+			rpFree(cNode);
+		}
+
+		void zigLeftRestruct(Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
+			Node<T> *aPrime = aNode->getCopy();
+			aPrime->right = bNode->left;
+			aPrime->right->parent = aPrime;
+
+			//rpPublish(B->left, aPrime);
+			aPrime->parent = bNode;
+
+			Node<T> *cPrime = cNode->getCopy();
+			cPrime->left = bNode->right;
+			cPrime->left->parent = cPrime;
+
+			// rpPublish(B->right, cPrime);
+			cPrime->parent = bNode;
+
+			Node<T> *dNode = cNode->parent;
+
+			if(dNode->left == cNode)
+				;//rpPubllish(D->left, B);
+			else
+				;//rpPublish(D->right, B);
+
+			rpFree(aNode);
+			rpFree(cNode);
+		}
+
+		void zigRightRestruct(Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
+			Node<T> *aPrime = aNode->getCopy();
+			aPrime->left = bNode->right;
+			aPrime->left->parent = aPrime;
+
+			//rpPublish(B->right, aPrime);
+			aPrime->parent = bNode;
+
+			Node<T> *cPrime = cNode->getCopy();
+			cPrime->right = bNode->left;
+			cPrime->right->parent = cPrime;
+
+			// rpPublish(B->left, cPrime);
+			cPrime->parent = bNode;
+
+			Node<T> *dNode = cNode->parent;
+
+			if(dNode->right == cNode)
+				;//rpPubllish(D->right, B);
+			else
+				;//rpPublish(D->left, B);
+
+			rpFree(aNode);
+			rpFree(cNode);
+		}
+
+		void rpFree(Node<T> *node) {
+			free(node);
+		}
+
 		// void deleteNode(int key) {
 		// 	return numOps;
 		// }
@@ -661,6 +663,7 @@ class RealRBT {
 			return temp;
 		}
 		//
+
 		T next(Node<T> *root) {
 			Node<T> *temp;
 
@@ -707,135 +710,14 @@ class RealRBT {
 		}
 };
 
-// global variables
-// bool canGetSize = false, canGetNumOp = false, canPop = false, canPush = false;
-// bool *canGetSizeP = &canGetSize, *canGetNumOpP = &canGetNumOp, *canPopP = &canPop, *canPushP = &canPush;
-// int value;
-// int *valuePush = &value;
-// stack<int*> stack;
-
-//menu function that will be ran by an independant thread
-// void menu(void) {
-// 	int option = 1;
-//
-// 	cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-//
-// 	while(option != 0) {
-//
-// 		cin >> option;
-//
-// 		switch(option) {
-// 			case 0:
-// 				canPushP = NULL;
-// 				canPopP = NULL;
-// 				canGetNumOpP = NULL;
-// 				canGetSizeP = NULL;
-// 				break;
-// 			case 1:
-// 				cout<<"what value would you like to push?"<<endl<<endl;
-// 				cin >> value;
-// 				// cout<<"pushing "<<valuePush;
-// 				canPush = true;
-// 				break;
-// 			case 2:
-// 				// cout<<"popping a value ";
-// 				canPop = true;
-// 				break;
-// 			case 3:
-// 				// cout<<"the size of the stack is ";
-// 				canGetNumOp = true;
-// 				break;
-// 			case 4:
-// 				// cout<<"the size of the stack is ";
-// 				canGetSize = true;
-// 				break;
-// 			default:
-// 				cout<<"give a valid input"<<endl<<endl;
-//
-// 		}
-// 	}
-//
-// }
-//
-// // push function that will be ran by an independant thread
-// void pushToStack(void) {
-// 	while(canPushP != NULL) {
-// 		if(*canPushP) {
-// 			cout<<"pushing "<<*valuePush<<endl<<endl;
-// 			stack.push(valuePush);
-// 			*canPushP = false;
-// 			cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-// 		}
-// 	}
-// }
-//
-// //pop function that will be ran by an independant thread
-// void popFromStack(void) {
-// 	while(canPopP != NULL) {
-// 		if(*canPopP) {
-// 			cout<<"popped the value "<<*stack.pop()<<endl<<endl;
-// 			*canPopP = false;
-// 			cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-// 		}
-// 	}
-// }
-//
-// //number of operations function that will be ran by an independant thread
-// void numerOpFromStack(void) {
-// 	while(canGetNumOpP != NULL) {
-// 		if(*canGetNumOpP) {
-// 			cout<<"the number of operations is "<<stack.getNumOps()<<endl<<endl;
-// 			*canGetNumOpP = false;
-// 			cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-// 		}
-// 	}
-// }
-//
-// //size function that will be ran by an independant thread
-// void sizeOfStack(void) {
-// 	while(canGetSizeP != NULL) {
-// 		if(*canGetSizeP) {
-// 			cout<<"the size of the stack is "<<stack.getSize()<<endl<<endl;
-// 			*canGetSizeP = false;
-// 			cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-// 		}
-// 	}
-// }
-//
-// //helper function to test stack functionality
-// void testStack() {
-//   // initialize the myThread array
-// 	thread myThreads[TOTAL_THREADS];
-//
-//   // init each index of myThread
-// 	myThreads[0] = thread(menu);
-// 	myThreads[1] = thread(pushToStack);
-// 	myThreads[2] = thread(popFromStack);
-// 	myThreads[3] = thread(numerOpFromStack);
-// 	myThreads[4] = thread(sizeOfStack);
-//
-//     //detaching so the threads that control the stack operations can run idependantly
-// 	for(int i = 1; i < TOTALTHREADS; i++)
-// 		myThreads[i].detach();
-//
-//   //join this thread so we wait for the menu thread to finish
-//   myThreads[0].join();
-//
-// }
-
 void runThread(RealRBT<int> *rbt, int id) {
 	// Make a random integer in the interval [1, 100)
 	int val = rand() % 100;
 
 	// Insert it and jot down the time
-	rbt->insert(val);
-	long time = clock();
-
-	// Strings print out weird concurrently. Build them first then print them out.
-	string p_out = "Thread " + to_string(id) + " inserted node with value " + to_string(val) + " at " + to_string(time) + "ms.\n";
-	cout << p_out;
+	// size_t key = insertOp(rbt, val, id);
+	// int *found = lookupOp(rbt, key, id);
 }
-
 
 int main(int argc, char **argv) {
 	vector<thread*> threads;
