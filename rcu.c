@@ -18,7 +18,7 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //THE SOFTWARE.
 
-////#define _GNU_SOURCE
+//#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -72,7 +72,7 @@ typedef struct epoch_s
 {
     pthread_t thread_id;
     __attribute__((__aligned__(CACHE_LINE_SIZE))) long long epoch;
-    volatile __attribute__((__aligned__(CACHE_LINE_SIZE))) 
+    volatile __attribute__((__aligned__(CACHE_LINE_SIZE)))
         struct epoch_s *next;
 } epoch_list_t;
 
@@ -81,7 +81,7 @@ typedef struct
     void *block;
     void (*func)(void *ptr);
 } block_item_t;
-typedef struct 
+typedef struct
 {
     block_item_t block[RCU_MAX_BLOCKS];
     volatile int head;
@@ -89,23 +89,23 @@ typedef struct
 
 typedef struct
 {
-    volatile __attribute__((__aligned__(CACHE_LINE_SIZE))) 
+    volatile __attribute__((__aligned__(CACHE_LINE_SIZE)))
         epoch_list_t *epoch_list;
-    volatile __attribute__((__aligned__(CACHE_LINE_SIZE))) 
+    volatile __attribute__((__aligned__(CACHE_LINE_SIZE)))
         AO_t rp_epoch;
-    volatile __attribute__((__aligned__(CACHE_LINE_SIZE))) 
+    volatile __attribute__((__aligned__(CACHE_LINE_SIZE)))
         block_list_t block;
-    __attribute__((__aligned__(CACHE_LINE_SIZE))) 
+    __attribute__((__aligned__(CACHE_LINE_SIZE)))
         AO_t write_requests;
-    __attribute__((__aligned__(CACHE_LINE_SIZE))) 
+    __attribute__((__aligned__(CACHE_LINE_SIZE)))
         AO_t write_completions;
-    __attribute__((__aligned__(CACHE_LINE_SIZE))) 
+    __attribute__((__aligned__(CACHE_LINE_SIZE)))
         AO_t reader_count_and_flag;
-    __attribute__((__aligned__(CACHE_LINE_SIZE))) 
+    __attribute__((__aligned__(CACHE_LINE_SIZE)))
         pthread_mutex_t rp_writer_lock;
 } rp_lock_t;
 
-static __thread __attribute__((__aligned__(CACHE_LINE_SIZE))) 
+static __thread __attribute__((__aligned__(CACHE_LINE_SIZE)))
         epoch_list_t *Thread_Epoch;
 void check_lock_valid(void *lock);
 //**********************************************
@@ -132,7 +132,7 @@ void read_lock(void *lock)
     Thread_Epoch->epoch++;
 
     // the following statement, though useless, is required if we want
-    // to avoid a memory barrier. 
+    // to avoid a memory barrier.
     // Note that the if statement should never return true, so the mb
     // will never execute. Accessing Thread_Epoch is what gives us the
     // ordering guarantees we need (on an X86, anyway)
@@ -199,7 +199,7 @@ void rw_lock(void *vlock)
 
     //lock_status(vlock, "read");
     //backoff_reset();
-    while ( AO_load(&(lock->write_requests)) != 
+    while ( AO_load(&(lock->write_requests)) !=
             AO_load(&(lock->write_completions)))
     {
         // wait
@@ -264,7 +264,7 @@ void write_lock(void *vlock)
 
     /*
     Thread_Stats[STAT_WRITE]++;
-    while (!AO_compare_and_swap_full(&lock->reader_count_and_flag, 
+    while (!AO_compare_and_swap_full(&lock->reader_count_and_flag,
                 0, RWL_ACTIVE_WRITER_FLAG))
     {
         // wait
@@ -337,10 +337,10 @@ void lock_thread_init(void *lock, int thread_id)
     }
     Thread_Stats[0] = NSTATS;
 
-    // create a thread private epoch 
+    // create a thread private epoch
     Thread_Epoch = (epoch_list_t *)malloc(sizeof(epoch_list_t));
     assert(Thread_Epoch != NULL);
-    
+
 	/* guard against multiple thread start-ups and grace periods */
 	write_lock(lock);
 
@@ -368,14 +368,14 @@ void rp_wait_grace_period(void *lock)
     static int max_head = 0;
 
     Thread_Stats[STAT_SYNC]++;
-    
+
 	// Advance to a new grace-period number, enforce ordering.
     epoch = AO_fetch_and_add_full(&rp_lock->rp_epoch, 2);
 
     //lock_mb();    // included as part of fetch_and_add, above
 
     // fetch_and_add returns the PREVIOUS value. We'll re-add one to get
-    // the current epoch. We could also do AO_load, but a concurrent 
+    // the current epoch. We could also do AO_load, but a concurrent
     // rp_wait_grace_period might move us into a new epoch. Therefore, this is faster
     // and safer.
     epoch += 2;
@@ -389,9 +389,9 @@ void rp_wait_grace_period(void *lock)
     list = rp_lock->epoch_list;
     while (list != NULL)
     {
-        while (list->thread_id != self && 
-               list->epoch < epoch && 
-               (list->epoch & 0x01)) 
+        while (list->thread_id != self &&
+               list->epoch < epoch &&
+               (list->epoch & 0x01))
         {
             Thread_Stats[STAT_SPINS]++;
             // wait
@@ -455,7 +455,7 @@ void rp_free(void *lock, void (*func)(void *ptr), void *ptr)
 
     assert(rp_lock->block.head >= 0 && rp_lock->block.head < RCU_MAX_BLOCKS);
 #else
-    if (rp_lock->block.head >= BLOCKS_FOR_FREE) 
+    if (rp_lock->block.head >= BLOCKS_FOR_FREE)
     {
         Thread_Stats[STAT_FREE_SYNC]++;
         rp_wait_grace_period(lock);
@@ -489,7 +489,7 @@ int rp_poll(void *lock)
 {
     rp_lock_t *rp_lock = (rp_lock_t *)lock;
 
-    if (rp_lock->block.head > BLOCKS_FOR_FREE) 
+    if (rp_lock->block.head > BLOCKS_FOR_FREE)
     {
         rp_wait_grace_period(lock);
         return 1;

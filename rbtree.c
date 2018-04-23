@@ -75,9 +75,9 @@ static rbnode_t *find_node(rbtree_t *tree, long key)
 
 	while (node != NULL && key != node->key)
 	{
-		if (key < node->key) 
+		if (key < node->key)
             node = rp_dereference(node->left);
-		else 
+		else
             node = rp_dereference(node->right);
 	}
 
@@ -91,7 +91,7 @@ void *rb_find(rbtree_t *tree, long key)
     read_lock(tree->lock);
 	rbnode_t *node = find_node(tree, key);
 
-    if (node != NULL) 
+    if (node != NULL)
         value = node->value;
     else
         value = NULL;
@@ -177,7 +177,7 @@ static void diag_left(rbtree_t *tree, rbnode_t *grandparent, rbnode_t *parent, r
 #endif
     cprime->left = three;
     if (three != NULL) three->parent = cprime;
-        
+
     bprime->right = cprime;
     cprime->parent = bprime;
 
@@ -186,7 +186,7 @@ static void diag_left(rbtree_t *tree, rbnode_t *grandparent, rbnode_t *parent, r
     aprime->parent = bprime;
     if (cprime->right != NULL) cprime->right->parent = cprime;
 
-    if (three != NULL) 
+    if (three != NULL)
     {
         if (three->left != NULL) three->left->parent = three;
         if (three->right != NULL) three->right->parent = three;
@@ -278,18 +278,18 @@ static void zig_left(rbtree_t *tree, rbnode_t *grandparent, rbnode_t *parent, rb
     if (aprime->left != NULL) aprime->left->parent = aprime;
     if (cprime->right != NULL) cprime->right->parent = cprime;
 
-    if(two != NULL) 
+    if(two != NULL)
     {
         if (two->left != NULL) two->left->parent = two;
         if (two->right != NULL) two->right->parent = two;
         rp_free(tree->lock, rbnode_free, node->left);
     }
 
-    if(three != NULL) 
+    if(three != NULL)
     {
         if (three->left != NULL) three->left->parent = three;
         if (three->right != NULL) three->right->parent = three;
-        rp_free(tree->lock, rbnode_free, node->right); 
+        rp_free(tree->lock, rbnode_free, node->right);
     }
     rp_free(tree->lock, rbnode_free, node);
     rp_free(tree->lock, rbnode_free, parent);
@@ -345,7 +345,7 @@ static void diag_right(rbtree_t *tree, rbnode_t *grandparent, rbnode_t *parent, 
     cprime->parent = bprime;
     if (aprime->left != NULL) aprime->left->parent = aprime;
 
-    if (two != NULL) 
+    if (two != NULL)
     {
         if (two->left != NULL) two->left->parent = two;
         if (two->right != NULL) two->right->parent = two;
@@ -409,18 +409,18 @@ static void zig_right(rbtree_t *tree, rbnode_t *grandparent, rbnode_t *parent, r
     if (aprime->left != NULL) aprime->left->parent = aprime;
     if (cprime->right != NULL) cprime->right->parent = cprime;
 
-    if (two != NULL) 
+    if (two != NULL)
     {
         if (two->left != NULL) two->left->parent = two;
         if (two->right != NULL) two->right->parent = two;
         rp_free(tree->lock, rbnode_free, node->left);
     }
 
-    if (three != NULL) 
+    if (three != NULL)
     {
         if (three->left != NULL) three->left->parent = three;
         if (three->right != NULL) three->right->parent = three;
-        rp_free(tree->lock, rbnode_free, node->right);    
+        rp_free(tree->lock, rbnode_free, node->right);
     }
 
     rp_free(tree->lock, rbnode_free, node);
@@ -449,7 +449,7 @@ static int restructure(rbtree_t *tree, rbnode_t *grandparent, rbnode_t *parent, 
     {
         diag_left(tree, grandparent, parent, node, a, b, c);
         return DIAG_LEFT;
-    } 
+    }
     else if (grandparent->left == parent && parent->right == node)
     {
         zig_left(tree, grandparent, parent, node, a, b, c);
@@ -526,9 +526,9 @@ int rb_insert(rbtree_t *tree, long key, void *value)
                 write_unlock(tree->lock);
                 return 0;
             }
-            else if (key <= node->key) 
+            else if (key <= node->key)
 				node = node->left;
-			else 
+			else
 				node = node->right;
 		}
 
@@ -616,11 +616,11 @@ static void double_black_node(rbtree_t *tree, rbnode_t *x, rbnode_t *y, rbnode_t
         // case 3
         if (is_left(y))
             z = y->left;
-        else 
+        else
             z = y->right;
         rest_type = restructure(tree, x,y,z, &a, &b, &c);
 #if defined(RCU) || defined(NO_GRACE_PERIOD)
-		// in RCU versions, some nodes get replaced. Fix up so pointers 
+		// in RCU versions, some nodes get replaced. Fix up so pointers
         // point to correct new nodes.
         // NOTE: this is guaranteed to be a DIAG restructure, but we'll code
         //       for all cases just for completeness.
@@ -702,7 +702,7 @@ static void copy_to_leftmost(rbnode_t *node, rbnode_t **node_right, rbnode_t **s
 #endif
 //*******************************
 #ifdef NO_GRACE_PERIOD
-// fixup the parent pointers of the non-copied childred to point to the 
+// fixup the parent pointers of the non-copied childred to point to the
 // new nodes
 static void fixup_to_leftmost(rbnode_t *node)
 {
@@ -749,7 +749,7 @@ void *rb_remove(rbtree_t *tree, long key)
 	node = find_node(tree, key);
 
     // not found
-	if (node == NULL) 
+	if (node == NULL)
     {
         //printf("rb_remove not found write_unlock\n");
         write_unlock(tree->lock);
@@ -805,7 +805,7 @@ void *rb_remove(rbtree_t *tree, long key)
         prev = fix_parent(tree, swap, prev, is_left(node));
         fixup_to_leftmost(swap);
         cleanup_to_leftmost(tree, node);
-        if (swap != node_right && swap_right != NULL) 
+        if (swap != node_right && swap_right != NULL)
         {
             rp_free(tree->lock, rbnode_free, swap_right);
         }
@@ -841,7 +841,7 @@ void *rb_remove(rbtree_t *tree, long key)
             prev = swap;
             next = swap->right;
         } else {
-#if defined(RCU) 
+#if defined(RCU)
             // exchange children of swap and node
 			rbnode_t *new_node = rbnode_copy(swap);
             //check_for(tree->root, new_node);
@@ -860,12 +860,12 @@ void *rb_remove(rbtree_t *tree, long key)
             } else {
                 if (is_left(node))
                     rp_assign_pointer(prev->left, new_node);
-                else 
+                else
                     rp_assign_pointer(prev->right, new_node);
                 new_node->parent = prev;
             }
 
-            // need to make sure bprime is seen before path to b is erased 
+            // need to make sure bprime is seen before path to b is erased
             rp_wait_grace_period(tree->lock);
             //NOSTATS tree->grace_periods++;
 
@@ -931,7 +931,7 @@ void *rb_remove(rbtree_t *tree, long key)
         prev = fix_parent(tree, next, prev, is_left(node));
 
 #if defined(NO_GRACE_PERIOD)
-        if (next != NULL) 
+        if (next != NULL)
         {
             if (next->left != NULL) next->left->parent = next;
             if (next->right != NULL) next->right->parent = next;
@@ -946,7 +946,7 @@ void *rb_remove(rbtree_t *tree, long key)
     {
         // case 1
         if (next != NULL) next->color = BLACK;
-    } 
+    }
     else if (node->color == BLACK)
     {
         if (prev->left == next)
@@ -1023,7 +1023,7 @@ rbnode_t *rb_next(rbnode_t *x)
     if ((xr = rp_dereference(x->right)) != NULL) return leftmost(xr);
 
     y = rp_dereference(x->parent);
-    while (y != NULL && y->right != NULL && 
+    while (y != NULL && y->right != NULL &&
            x->key==rp_dereference(y->right)->key)
     {
         x = y;
@@ -1045,7 +1045,7 @@ void *rb_next_nln(rbtree_t *tree, long prev_key, long *key)
     buff[0] = 0;
 
     read_lock(tree->lock);
-    
+
     node = rp_dereference(tree->root);
 
     strcat(buff, "ROOT");
@@ -1056,7 +1056,7 @@ void *rb_next_nln(rbtree_t *tree, long prev_key, long *key)
         {
             strcat(buff, " =right");
             node = rp_dereference(node->right);
-        } 
+        }
         else if (node->key > prev_key)
         {
             strcat(buff, " left");
@@ -1093,7 +1093,7 @@ void *rb_old_next(rbtree_t *tree, long prev_key, long *key)
     void *value;
 
     read_lock(tree->lock);
-    
+
     node = tree->root;
 
     while (node != NULL)
@@ -1103,7 +1103,7 @@ void *rb_old_next(rbtree_t *tree, long prev_key, long *key)
             node = leftmost(node->right);
             assert(node != NULL);
             break;
-        } 
+        }
         else if (node->key > prev_key)
         {
             if (node->left != NULL)
@@ -1158,7 +1158,7 @@ static void output_list(rbnode_t *node, int depth)
         printf("depth: %d value: %s", depth, toString(node));
         printf(" l: %s", toString(node->left));
         printf(" r: %s", toString(node->right));
-        if (rbnode_invalid(node, depth)) 
+        if (rbnode_invalid(node, depth))
             printf(" INVALID NODE: %d\n", rbnode_invalid(node, depth));
         else
             printf("\n");
@@ -1182,7 +1182,7 @@ static void o_resize()
 
     for (row=0; row<o_nrows; row++)
     {
-        while (strlen(o_rows[row]) < length) 
+        while (strlen(o_rows[row]) < length)
         {
             strcat(o_rows[row], " ");
         }
@@ -1286,4 +1286,8 @@ static int rbn_size(rbnode_t *node)
 int rb_size(rbtree_t *tree)
 {
     return rbn_size(tree->root);
+}
+
+int main(void) {
+  return 0;
 }
