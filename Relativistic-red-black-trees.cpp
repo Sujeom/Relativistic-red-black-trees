@@ -72,31 +72,130 @@ class RealRBT {
 			return nodeBank[(nodeBankIndex++) % MAX_NUM_NODES];
 		}
 
-		void insert(T x) {
+		Node<T> *insert(T x) {
 			size_t key = hash<T>{}(x);
 			Node<T> *newNode = getNewNode();
 
 			newNode->key = key;
 			*(newNode->val) = x;
 
-			//
-			// if(root == NULL) {
-			// 	head = newNode;
-			// 	head->color = BLACK;
-			// 	return;
-			// }
-			//
-			// if(placeNode(root, newNode)) {
-			//
-			// }
-			// else {
-			//
-			// }
-			//
-			// while();
+			treeInsert(root, newNode);
+
+			repairRBT(newNode);
+
+			root = newNode;
+
+			while(root->parent != NULL)
+				root = root->parent;
+			
+			return root;	
 
 		}
 
+		void treeInsert(Node<T> *root, Node<T> *newNode)
+		{
+		
+			if(root == NULL)
+			{
+				newNode->parent = root;
+				newNode->left = NULL;
+				newNode->right = NULL;
+				newNode->color = RED;
+
+				return;
+			}
+
+			if(newNode->val < root->val)
+			{//traverse to the left side of the tree
+				if(root->left != NULL)
+				{
+					treeInsert(root->left, newNode);
+					return;
+				}
+				
+				root->left = newNode;
+			}
+			else if(root->right != NULL)
+			{//try to traverse the right side of the tree
+				treeInsert(root->right, newNode);
+				return;
+			}
+
+			root->right = newNode;
+		}
+
+		void repairRBT(Node<T> *newNode)
+		{
+			if(newNode->parent == NULL)
+			{
+				newNode->color = BLACK;
+				return;
+			}
+			else if(newNode->parent == BLACK)
+			{
+				return;
+			}
+			else if(newNode->parent == RED)
+			{
+				newNode->parent->color = BLACK;
+				getUncle(newNode)->color = BLACK;
+				getGrandparent(newNode)->color = BLACK;
+				treeInsert(getGrandparent(newNode));
+				return;
+			}
+
+			Node<T> p = newNode->parent;
+			Node<T> g = getGrandparent(newNode);
+
+			if(newNode == g->left->right)
+			{
+				Node<T> temp = p->right;
+				assert(temp != NULL); // since the leaves of a red-black tree are empty, they cannot become internal nodes
+				p->right = temp->left;
+				temp->left = p;
+				p->parent = p->parent;
+				p->parent = temp;
+
+				newNode = newNode->left;
+			}
+			else if(n == g->right->left)
+			{
+				Node<T> temp = p->left;
+				assert(temp != NULL); // since the leaves of a red-black tree are empty, they cannot become internal nodes
+				p->left = temp->right;
+				temp->right = p;
+				p->parent = p->parent;
+				p->parent = temp;
+
+				newNode = newNode->right;
+			}
+
+			p = newNode->parent;
+			g = getGrandparent(newNode);
+
+			if(newNode == p->left)
+			{
+				Node<T> temp = g->left;
+				assert(temp != NULL); // since the leaves of a red-black tree are empty, they cannot become internal nodes
+				g->left = temp->right;
+				temp->right = g;
+				g->parent = g->parent;
+				g->parent = temp;
+			}
+			else
+			{
+				Node<T> temp = g->right;
+				assert(temp != NULL); // since the leaves of a red-black tree are empty, they cannot become internal nodes
+				g->right = temp->left;
+				temp->left = g;
+				g->parent = g->parent;
+				g->parent = temp;
+			}
+
+			p->color = BLACK;
+			g->color = RED;
+
+		}
 		// this function will return false if the parent is red and true if the parent is black
 		bool placeNode(Node<T> *root, Node<T> *newNode) {
 			if(root->key > newNode->key) {
