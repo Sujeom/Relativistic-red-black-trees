@@ -685,6 +685,25 @@ class RealRBT {
 		
 		Node<T> *prev(Node<T> *root) {
 		
+			Node<T> *temp;
+
+			//if we are the root then we
+			//will return the left most child of the right node
+			if(root->parent==NULL)
+				return last(root->left);
+			//if the current node is the right greater than the parent then 
+			//the next keyed node will be the leftmost node from the right child of tha node
+			else if(root->parent->val < root->val)
+				if(root->left==NULL)
+					return NULL;
+				else
+					return first(root->left);
+			//if the current nodes value is less than the value
+			//of its parent then the next keyed value will be the left most
+			//child of its sibling right child
+			else
+				return first(root->parent->left);
+
 		}
 };
 
