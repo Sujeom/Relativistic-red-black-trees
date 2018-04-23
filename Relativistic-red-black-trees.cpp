@@ -6,15 +6,26 @@
 #include <mutex>
 #include <assert.h>
 
-#define TOTAL_THREADS 5
-#define MAX_NUM_NODES 1000000
-#define NUM_READERS 10
-#define EPOCH 200
+#define TOTAL_THREADS 	5
+#define MAX_NUM_NODES 	1000000
+#define NUM_READERS 		10
+#define EPOCH 					200
 
-#define BLACK 0
-#define RED 1
+// RESTRUCTURE CASES
+#define DIAG_LEFT 			1
+#define ZIG_LEFT 				2
+#define DIAG_RIGHT 			3
+#define ZIG_RIGHT				4
+
+#define BLACK 					0
+#define RED 						1
 
 using namespace std;
+
+// CONVENTION:
+// aNode = currNode
+// bNode = parent
+// cNode = grandparent
 
 // Node definition
 template <class T>
@@ -149,7 +160,7 @@ class RealRBT {
 		}
 
 		// Performs a regular BST style insertion sequentially
-		Node<T> *bstInsert(Node<T> *newNode) {
+		bool bstInsert(Node<T> *newNode) {
 			if(newNode == NULL)
 				return this->root;
 
@@ -157,8 +168,9 @@ class RealRBT {
 
 			while(temp != NULL) {
 
-				// If newNode's key is too large, it belongs on the right
-				if(newNode->key >= temp->key)
+				if(newNode->key == temp->key)
+					return false;
+				else if(newNode->key > temp->key)
 					temp = temp->right;
 				else
 					temp = temp->left;
@@ -169,24 +181,81 @@ class RealRBT {
 			else
 				temp->left = newNode;
 
-			return newNode;
+			return true;
 		}
 
-		void insert(int key, T *val) {
+		Node<T> *sibling(Node<T> *node) {
+			if (node->parent->left == node)
+        return node->parent->right;
+    	else
+        return node->parent->left;
+		}
+
+		int restructure(Node<T> *node, Node<T> *parent, Node<T> *grandpa,
+										Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
+
+			if(grandpa->left == parent && parent->left == node) {
+				diagLeftRestruct(node, parent, grandpa);
+				return DIAG_LEFT;
+			}
+			else if(grandpa->left == parent && parent->right == node) {
+				zigLeftRestruct(node, parent, grandpa);
+				return ZIG_LEFT;
+			}
+			else if(parent->right == node && grandpa->right == parent) {
+				diagRightRestruct(node, parent, grandpa);
+				return DIAG_RIGHT;
+			}
+			else {
+				zigRightRestruct(node, parent, grandpa);
+				return ZIG_RIGHT;
+			}
+
+			return 0;
+		}
+
+		bool recolor(Node<T> *node) {
+			Node<T> *parent = node->parent;
+			Node<T> *grandpa = parent->parent;
+			Node<T> *uncle = sibling(parent);
+
+			if(uncle == NULL || uncle->color == BLACK) {
+				restructure(node, parent, grandpa);
+				node->color = RED;
+				parent->color = BLACK;
+				grandpa->color = RED;
+			}
+			else if(uncle != NULL && uncle->color == RED) {
+				uncle->color = BLACK;
+				parent->color = BLACK;
+
+				if(grandpa->parent != NULL)
+					grandpa->color = RED;
+
+				if(grandpa->parent != NULL && grandpa->parent->color == RED)
+					recolor(grandpa);
+			}
+		}
+
+		bool insert(int key, T *val) {
 			Node<T> *newNode = getNewNode();
 			newNode->val = val;
 			newNode->key = key;
 
-			newNode = bstInsert(newNode);
-			newNode->color = RED;
-
-			if(this->root == newNode) {
+			// If empty tree
+			if(this->root == NULL) {
 				newNode->color = BLACK;
-				return;
+				this->root = newNode;
 			}
+			else {
+				bool success = bstInsert(newNode);
 
-			// TODO: Complete insert -> how to check if restructures/recolors are
-			// needed?
+				if(!success)
+					return false;
+
+				if(newNode->parent->color == RED)
+					recolor(newNode);
+			}
 		}
 
 		// Leftmost node in right subtree
@@ -305,9 +374,8 @@ class RealRBT {
 
 		// This function will handle the restucturing of the tree
 		// with left diagnal
-		void diagLeftRestruct(Node<T> *cNode) {
+		void diagLeftRestruct(Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
 			Node<T> *cNodePrime = cNode->getCopy();
-			Node<T> *bNode = cNode->left;
 
 			cNodePrime->left = bNode->right;
 			cNodePrime->left->parent = cNodePrime;
