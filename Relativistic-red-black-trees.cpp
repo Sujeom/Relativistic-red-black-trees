@@ -7,7 +7,7 @@
 #include <assert.h>
 
 #define TOTAL_THREADS 	5
-#define MAX_NUM_NODES 	1000000
+#define MAX_NUM_NODES 	10000
 #define NUM_READERS 		10
 #define EPOCH 					200
 
@@ -32,18 +32,18 @@ template <class T>
 class Node {
 	public:
 		// Member variables
-		T *val;
-		size_t key;
+		T val;
+		int key;
 		bool color;
-		Node *left, *right, *parent;
-		Node *backup;
+		Node<T> *left, *right, *parent;
+		Node<T> *backup;
 
-		Node(int _key, T *_val) {
-			val = _val;
+		Node(int _key) {
 			key = _key;
 			color = BLACK;
 			left = NULL, right = NULL, parent = NULL;
-			backup = new Node<T>(0, new T());
+			backup = new Node<T>(0);
+			cout << "made node" << endl;
 		}
 
 		Node<T> *getCopy() {
@@ -72,7 +72,7 @@ class RealRBT {
 			readers = new int[NUM_READERS];
 
 			for(int i = 0; i < MAX_NUM_NODES; i++)
-				nodeBank.push_back(new Node<T>(0, new T()));
+				nodeBank.push_back(new Node<T>(0));
 		}
 
 		Node<T> *getNewNode() {
@@ -419,9 +419,8 @@ class RealRBT {
 			rpFree(cNode);
 		}
 
-		void diagRightRestruct(Node<T> *cNode) {
+		void diagRightRestruct(Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
 			Node<T> *cNodePrime = cNode->getCopy();
-			Node<T> *bNode = cNode->right;
 
 			cNodePrime->right = bNode->left;
 			cNodePrime->right->parent = cNodePrime;
@@ -441,9 +440,7 @@ class RealRBT {
 			rpFree(cNode);
 		}
 
-		void zigLeftRestruct(Node<T> *cNode) {
-			Node<T> *aNode = cNode->left;
-			Node<T> *bNode = aNode->right;
+		void zigLeftRestruct(Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
 			Node<T> *aPrime = aNode->getCopy();
 			aPrime->right = bNode->left;
 			aPrime->right->parent = aPrime;
@@ -469,9 +466,7 @@ class RealRBT {
 			rpFree(cNode);
 		}
 
-		void zigRightRestruct(Node<T> *cNode) {
-			Node<T> *aNode = cNode->right;
-			Node<T> *bNode = aNode->left;
+		void zigRightRestruct(Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
 			Node<T> *aPrime = aNode->getCopy();
 			aPrime->left = bNode->right;
 			aPrime->left->parent = aPrime;
@@ -538,16 +533,16 @@ int main(int argc, char **argv) {
 	// Make a shared RBT of integers
 	RealRBT<int> *rbt = new RealRBT<int>();
 
-	// Random number seed
-	srand(time(NULL));
-
-	// Create threads with shared RBT and an ID
-	for(int i = 0; i < TOTAL_THREADS; i++)
-		threads.push_back(new thread(runThread, rbt, i));
-
-	// Join 'em!
-	for(int i = 0; i < TOTAL_THREADS; i++)
-		threads[i]->join();
+	// // Random number seed
+	// srand(time(NULL));
+	//
+	// // Create threads with shared RBT and an ID
+	// for(int i = 0; i < TOTAL_THREADS; i++)
+	// 	threads.push_back(new thread(runThread, rbt, i));
+	//
+	// // Join 'em!
+	// for(int i = 0; i < TOTAL_THREADS; i++)
+	// 	threads[i]->join();
 
 	// testStack();
 }
