@@ -5,6 +5,7 @@
 #include <string>
 #include <mutex>
 #include <assert.h>
+#include "rcu.c"
 
 #define TOTAL_THREADS 	5
 #define MAX_NUM_NODES 	10000
