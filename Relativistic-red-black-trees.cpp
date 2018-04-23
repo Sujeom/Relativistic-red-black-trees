@@ -379,9 +379,11 @@ class RealRBT {
 			newNode->key = hash<T>{}(val);
 
 			// If empty tree
-			if(this->root == NULL) {
+			if(root == NULL) {
 				newNode->color = BLACK;
-				this->root = newNode;
+				root = newNode;
+				cout << "he2" << endl;
+
 			}
 			else {
 				bool success = bstInsert(newNode);
@@ -392,6 +394,8 @@ class RealRBT {
 				if(newNode->parent->color == RED)
 					recolor(newNode);
 			}
+
+			cout << "he" << endl;
 
 			return true;
 		}
@@ -723,7 +727,6 @@ RealRBT<int> *populateRBT(RealRBT<int> *tree) {
 	for(int i = 0; i < MAX_NUM_NODES / 2; i++) {
 		// Make a random integer in the interval [1, 100)
 		int val = rand() % 100;
-
 		bool success = tree->insert(val);
 	}
 
