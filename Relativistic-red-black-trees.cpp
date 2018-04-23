@@ -8,6 +8,8 @@
 
 #define TOTAL_THREADS 5
 #define MAX_NUM_NODES 1000000
+#define NUM_READERS 10
+#define EPOCH 200
 
 #define BLACK 0
 #define RED 1
@@ -23,12 +25,18 @@ class Node {
 		size_t key;
 		bool color;
 		Node *left, *right, *parent;
+		Node *backup;
 
 		Node(int _key, T *_val) {
 			val = _val;
 			key = _key;
 			color = BLACK;
 			left = NULL, right = NULL, parent = NULL;
+			backup = new Node<T>(0, new T());
+		}
+
+		Node<T> *getCopy() {
+			return backup;
 		}
 };
 
@@ -38,6 +46,9 @@ class RealRBT {
 	private:
 		vector<Node<T>*> nodeBank;
 		atomic_int nodeBankIndex{0};
+		int *readers;
+		int reader;
+		atomic_int epoch{EPOCH};
 
 	public:
 		atomic<Node<T>*> root;
@@ -47,6 +58,7 @@ class RealRBT {
 		RealRBT() {
 			root = NULL;
 			lock = new mutex();
+			readers = new int[NUM_READERS];
 
 			for(int i = 0; i < MAX_NUM_NODES; i++)
 				nodeBank.push_back(new Node<T>(0, new T()));
@@ -54,6 +66,26 @@ class RealRBT {
 
 		Node<T> *getNewNode() {
 			return nodeBank[(nodeBankIndex++) % MAX_NUM_NODES];
+		}
+
+		// RP read primitives
+		void startRead() {
+			readers[reader] = EPOCH;
+		}
+
+		void endRead() {
+			readers[reader] = 0;
+		}
+
+		// RP write primitives
+		void waitForReaders() {
+			int currEpoch;
+
+			this->epoch++;
+			currEpoch = this->epoch;
+
+			for(int i = 0; i < NUM_READERS; i++)
+				while(readers[i] != 0 && readers[i] < currEpoch);
 		}
 
 		// Get the leftmost node from the given node
@@ -80,19 +112,11 @@ class RealRBT {
 			return temp;
 		}
 
-		void readLock(mutex *lock) {
-			lock->lock();
-		}
-
-		void readUnlock(mutex *lock) {
-			lock->unlock();
-		}
-
-		T *first() {
+		T *first(int reader) {
 			Node<T> *node = NULL;
 			T *val = NULL;
 
-			readLock(this->lock);
+			startRead();
 
 			node = leftmost(this->root);
 
@@ -101,7 +125,7 @@ class RealRBT {
 
 			val = node->val;
 
-			readUnlock(this->lock);
+			endRead();
 
 			return val;
 		}
@@ -110,7 +134,7 @@ class RealRBT {
 			Node<T> *node = NULL;
 			T *val = NULL;
 
-			readLock(this->lock);
+			startRead(reader);
 
 			node = rightmost(this->root);
 
@@ -119,201 +143,272 @@ class RealRBT {
 
 			val = node->val;
 
-			readUnlock(this->lock);
+			endRead(reader);
 
 			return val;
 		}
 
-		Node<T> *next(Node<T> *currentNode)
-		{
-			Node<T> *currentNodex,*currentNodey;
+		// Performs a regular BST style insertion sequentially
+		Node<T> *bstInsert(Node<T> *newNode) {
+			if(newNode == NULL)
+				return this->root;
 
-			if ((currentNodex = *currentNode->right) != NULL) return leftmost(currentNodex);
+			Node<T> *temp = this->root;
 
-			currentNodey = currentNode->parent;
-			while (currentNodey != NULL && currentNodey->right != NULL && currentNode->key== *(currentNodey->right)->key)
-			{
-				currentNode = currentNodey;
-				currentNodey = *currentNodey->parent;
+			while(temp != NULL) {
+
+				// If newNode's key is too large, it belongs on the right
+				if(newNode->key >= temp->key)
+					temp = temp->right;
+				else
+					temp = temp->left;
 			}
 
-			return currentNodey;
+			if(newNode->key >= temp->parent->key)
+				temp->right = newNode;
+			else
+				temp->left = newNode;
+
+			return newNode;
 		}
 
-		void *previous(T *tree, long nextKey, long *key)
-		{
-			assert(0);
-			return NULL;
+		void insert(int key, T *val) {
+			Node<T> *newNode = getNewNode();
+			newNode->val = val;
+			newNode->key = key;
+
+			newNode = bstInsert(newNode);
+			newNode->color = RED;
+
+			if(this->root == newNode) {
+				newNode->color = BLACK;
+				return;
+			}
+
+			// TODO: Complete insert -> how to check if restructures/recolors are
+			// needed?
 		}
-	}
 
-	// This a function that will delete the node that has two children
-	void interiorDelete(Node<T> *nodeToDelete)
-	{
-		Node<T> *cNode = next(nodeToDelete);
+		// Leftmost node in right subtree
+		Node<T> *next(Node<T> *currentNode) {
+			return leftmost(currentNode->right);
+		}
 
-		Node<T> *cPrimeNode = cNode.getCopy();
+		// Rightmost node in left subtree
+		void *previous(Node<T> *currentNode) {
+			return rightmost(currentNode->left);
+		}
 
-		cPrimeNode->color = nodeToDelete->color;
+		void swap(Node<T> *bNode) {
+			Node<T> *cNode = next(bNode);
+			Node<T> *cPrimeNode = cNode->getCopy();
 
-		cPrimeNode->left = nodeToDelete->left;
-		cPrimeNode->left->parent = cPrimeNode;
+			cPrimeNode->color = bNode->color;
 
-		cPrimeNode->right = nodeToDelete->right;
-		cPrimeNode->right->parent = cPrimeNode;
+			cPrimeNode->left = bNode->left;
+			cPrimeNode->left->parent = cPrimeNode;
 
-		Node<T> *fNode = nodeToDelete->parent;
-		cPrimeNode->parent = fNode;
+			cPrimeNode->right = bNode->left;
+			cPrimeNode->right->parent = cPrimeNode;
 
-		if(fNode->left == nodeToDelete)
-			//TODO create this fuction
-			;////rpPublish(fNode->left, cPrimeNode);
-		else
+			Node<T> *fNode = bNode->parent;
+			cPrimeNode->parent = fNode;
+
+			if(fNode->left == bNode)
+				;// rpPublish(fNode->left, cPrimeNode);
+			else
+				;// rpPublish(fNode->right, cPrimeNode);
+
+			rpFree(bNode);
+
+			waitForReaders();
+
+			Node<T> *eNode = cNode->parent;
+			rpPublish(eNode->left, cNode->right);
+			cNode->right->parent = eNode;
+
+			rpFree(cNode);
+		}
+
+		void specialSwap(Node<T> *bNode) {
+			Node<T> *cNode = next(bNode);
+
+			cNode->color = bNode->color;
+			cNode->left = bNode->left;
+			cNode->left->parent = cNode;
+
+			Node<T> *eNode = bNode->parent;
+
+			if(eNode->left == bNode)
+				;// rpPublish(eNode->left, cNode);
+			else
+				;// rpPublish(eNode->right, cNode);
+
+			rpFree(bNode);
+		}
+
+		// This a function that will delete the node that has two children
+		void interiorDelete(Node<T> *nodeToDelete) {
+			Node<T> *cNode = next(nodeToDelete);
+
+			Node<T> *cPrimeNode = cNode->getCopy();
+
+			cPrimeNode->color = nodeToDelete->color;
+
+			cPrimeNode->left = nodeToDelete->left;
+			cPrimeNode->left->parent = cPrimeNode;
+
+			cPrimeNode->right = nodeToDelete->right;
+			cPrimeNode->right->parent = cPrimeNode;
+
+			Node<T> *fNode = nodeToDelete->parent;
+			cPrimeNode->parent = fNode;
+
+			if(fNode->left == nodeToDelete)
+				//TODO create this fuction
+				;////rpPublish(fNode->left, cPrimeNode);
+			else
+				//TODO crate this fuction
+				;///rpPublish(fNode->right, cPrimeNode);
 			//TODO crate this fuction
-			;///rpPublish(fNode->right, cPrimeNode);
-		//TODO crate this fuction
-		////rpFree(nodeToDelete);
+			////rpFree(nodeToDelete);
 
-		////waitForReaders();
+			////waitForReaders();
 
-		Node<T> *eNode = c->parent;
-		//TODO crate this fuction
-		/////////rpPublish(eNode->left, cNode->right);
-		cNode->right->parent = eNode;
+			Node<T> *eNode = cNode->parent;
+			//TODO crate this fuction
+			/////////rpPublish(eNode->left, cNode->right);
+			cNode->right->parent = eNode;
 
-		//TODO crate this fuction
-		rpFree(cNode);
-	}
+			//TODO crate this fuction
+			rpFree(cNode);
+		}
 
-	// This is for the case of the special delete of the repalcement node being the child of
-	// the node to be deleted
-	void specialInterior(Node<T> *bNode)
-	{
-		Node<T> *cNode = next(bNode);
+		// This is for the case of the special delete of the repalcement node being the child of
+		// the node to be deleted
+		void specialInteriorDelete(Node<T> *bNode) {
+			Node<T> *cNode = next(bNode);
 
-		cNode->color = bNode->color;
-		cNode->left = bNode->left;
-		cNode->left->parent = cNode;
+			cNode->color = bNode->color;
+			cNode->left = bNode->left;
+			cNode->left->parent = cNode;
 
-		Node<T> eNode = bNode->parent;
-		if(eNode->left == bNode)
-			;//////rpPublish(eNode->left, cNode);
-		else
-			;//////rpPublish(eNode->right, cNode);
+			Node<T> *eNode = bNode->parent;
+			if(eNode->left == bNode)
+				;//////rpPublish(eNode->left, cNode);
+			else
+				;//////rpPublish(eNode->right, cNode);
 
-		rpFree(bNode);
-	}
+			rpFree(bNode);
+		}
 
 
-	// This function will handle the restucturing of the tree
-	// with left diagnal
-	void diagLeftRestruct(Node<T> *bNode)
-	{
-		Node<T> cNodePrime = cNode.getCopy();
-		cNodePrime->left = bNode->right;
-		cNodePrime->left->parent = cNodePrime;
+		// This function will handle the restucturing of the tree
+		// with left diagnal
+		void diagLeftRestruct(Node<T> *cNode) {
+			Node<T> *cNodePrime = cNode->getCopy();
+			Node<T> *bNode = cNode->left;
 
-		///rpPublish(bNode->right, cNodePrime);
-		cNodePrime->parent = bNode;
+			cNodePrime->left = bNode->right;
+			cNodePrime->left->parent = cNodePrime;
 
-		dNode = cNode->parent;
+			///rpPublish(bNode->right, cNodePrime);
+			cNodePrime->parent = bNode;
 
-		if(dNOde->left == cNode)
-			;////rpPublish(dNode->left, bNode);
-		else
-			;//////rpPublish(dNode->right, bNode);
+			Node<T> *dNode = cNode->parent;
 
-		bNode->parent = dNode;
+			if(dNode->left == cNode)
+				;////rpPublish(dNode->left, bNode);
+			else
+				;//////rpPublish(dNode->right, bNode);
 
-		rpFree(cNode);
+			bNode->parent = dNode;
 
-	}
+			rpFree(cNode);
+		}
 
-	void diagRightRestruct(Node<T> *bNode)
-	{
-		Node<T> cNodePrime = cNode.getCopy();
-		cNodePrime->right = bNode->left;
-		cNodePrime->right->parent = cNodePrime;
+		void diagRightRestruct(Node<T> *cNode) {
+			Node<T> *cNodePrime = cNode->getCopy();
+			Node<T> *bNode = cNode->right;
 
-		///rpPublish(bNode->right, cNodePrime);
-		cNodePrime->parent = bNode;
+			cNodePrime->right = bNode->left;
+			cNodePrime->right->parent = cNodePrime;
 
-		dNode = cNode->parent;
+			///rpPublish(bNode->left, cNodePrime);
+			cNodePrime->parent = bNode;
 
-		if(dNOde->right == cNode)
-			;////rpPublish(dNode->right, bNode);
-		else
-			;//////rpPublish(dNode->left, bNode);
+			Node<T> *dNode = cNode->parent;
 
-		bNode->parent = dNode;
+			if(dNode->right == cNode)
+				;////rpPublish(dNode->right, bNode);
+			else
+				;//////rpPublish(dNode->left, bNode);
 
-		rpFree(cNode);
+			bNode->parent = dNode;
 
-	}
+			rpFree(cNode);
+		}
 
-	void zigLeftRestruct(Node<T> *bNode)
-	{
-		Node<T> *aPrime = aNode.getCopy();
-		aPrime->right = B->left;
-		aPrime->right->parent = aPrime;
+		void zigLeftRestruct(Node<T> *cNode) {
+			Node<T> *aNode = cNode->left;
+			Node<T> *bNode = aNode->right;
+			Node<T> *aPrime = aNode->getCopy();
+			aPrime->right = bNode->left;
+			aPrime->right->parent = aPrime;
 
-		//rpPublish(B->left, aPrime);
-		aPrime->parent = B;
+			//rpPublish(B->left, aPrime);
+			aPrime->parent = bNode;
 
-		cPrime = C.getCopy();
-		cPrime->left = B->right;
-		cPrime->left->parent = cPrime;
+			Node<T> *cPrime = cNode->getCopy();
+			cPrime->left = bNode->right;
+			cPrime->left->parent = cPrime;
 
-		rpPublish(B->right, cPrime);
-		cPrime->parent = B;
+			// rpPublish(B->right, cPrime);
+			cPrime->parent = bNode;
 
-		D = C->parent;
+			Node<T> *dNode = cNode->parent;
 
-		if(D->left == C)
-			;//rpPubllish(D->left, B);
-		else
-			;//rpPublish(D->right, B);
+			if(dNode->left == cNode)
+				;//rpPubllish(D->left, B);
+			else
+				;//rpPublish(D->right, B);
 
-		rpFree(A);
-		rpFree(C);
+			rpFree(aNode);
+			rpFree(cNode);
+		}
 
-	}
+		void zigRightRestruct(Node<T> *cNode) {
+			Node<T> *aNode = cNode->right;
+			Node<T> *bNode = aNode->left;
+			Node<T> *aPrime = aNode->getCopy();
+			aPrime->left = bNode->right;
+			aPrime->left->parent = aPrime;
 
-	void zigRightRestruct(Node<T> *bNode)
-	{
-		Node<T> *aPrime = aNode.getCopy();
-		aPrime->left = B->right;
-		aPrime->left->parent = aPrime;
+			//rpPublish(B->right, aPrime);
+			aPrime->parent = bNode;
 
-		//rpPublish(B->left, aPrime);
-		aPrime->parent = B;
+			Node<T> *cPrime = cNode->getCopy();
+			cPrime->right = bNode->left;
+			cPrime->right->parent = cPrime;
 
-		cPrime = C.getCopy();
-		cPrime->right = B->left;
-		cPrime->right->parent = cPrime;
+			// rpPublish(B->left, cPrime);
+			cPrime->parent = bNode;
 
-		rpPublish(B->left, cPrime);
-		cPrime->parent = B;
+			Node<T> *dNode = cNode->parent;
 
-		D = C->parent;
+			if(dNode->right == cNode)
+				;//rpPubllish(D->right, B);
+			else
+				;//rpPublish(D->left, B);
 
-		if(D->right == C)
-			;//rpPubllish(D->right, B);
-		else
-			;//rpPublish(D->left, B);
+			rpFree(aNode);
+			rpFree(cNode);
+		}
 
-		rpFree(A);
-		rpFree(C);
+		void rpFree(Node<T> *node) {
+			free(node);
+		}
 
-	}
-
-	void rpFree(/*void *lock, */void (*func)(void *ptr), void *ptr)
-	{
-		rp_lock_t *rp_lock = (rp_lock_t *)lock;
-    	int head;
-
-
-	}
 		// void deleteNode(int key) {
 		// 	return numOps;
 		// }
@@ -333,6 +428,7 @@ class RealRBT {
 		// T prev() {
 		//
 		// }
+
 };
 
 void runThread(RealRBT<int> *rbt, int id) {
