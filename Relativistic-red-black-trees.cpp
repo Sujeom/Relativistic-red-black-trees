@@ -6,29 +6,46 @@
 #include <mutex>
 #include <assert.h>
 
-#define TOTAL_THREADS 5
-#define MAX_NUM_NODES 10000
+#define TOTAL_THREADS 	5
+#define MAX_NUM_NODES 	10000
+#define NUM_READERS 		10
+#define EPOCH 					200
 
-#define BLACK 0
-#define RED 1
+// RESTRUCTURE CASES
+#define DIAG_LEFT 			1
+#define ZIG_LEFT 				2
+#define DIAG_RIGHT 			3
+#define ZIG_RIGHT				4
+
+#define BLACK 					0
+#define RED 						1
 
 using namespace std;
+
+// CONVENTION:
+// aNode = currNode
+// bNode = parent
+// cNode = grandparent
 
 // Node definition
 template <class T>
 class Node {
 	public:
 		// Member variables
-		T *val;
-		size_t key;
+		T val;
+		int key;
 		bool color;
-		Node *left, *right, *parent;
+		Node<T> *left, *right, *parent;
+		Node<T> *backup;
 
-		Node(int _key, T *_val) {
-			val = _val;
+		Node(int _key) {
 			key = _key;
 			color = BLACK;
-			left = NULL, right = NULL, parent = NULL;
+			left = NULL, right = NULL, parent = NULL, backup = NULL;
+		}
+
+		Node<T> *getCopy() {
+			return backup;
 		}
 };
 
@@ -38,6 +55,9 @@ class RealRBT {
 	private:
 		vector<Node<T>*> nodeBank;
 		atomic_int nodeBankIndex{0};
+		int *readers;
+		int reader;
+		atomic_int epoch{EPOCH};
 
 	public:
 		atomic<Node<T>*> root;
@@ -47,117 +67,177 @@ class RealRBT {
 		RealRBT() {
 			root = NULL;
 			lock = new mutex();
+			readers = new int[NUM_READERS];
 
-			for(int i = 0; i < MAX_NUM_NODES; i++)
-				nodeBank.push_back(new Node<T>(0, new T()));
+			for(int i = 0; i < MAX_NUM_NODES; i++) {
+				Node<T> *n = new Node<T>(0);
+				n->backup = new Node<T>(0);
+
+				nodeBank.push_back(n);
+			}
 		}
 
 		Node<T> *getNewNode() {
 			return nodeBank[(nodeBankIndex++) % MAX_NUM_NODES];
 		}
 
-		// size_t insert(T x) {
-		// 	size_t key = hash<T>{}(x);
-		// 	Node<T> *newNode = getNewNode();
-		//
-		// 	// Assign the node a value and key
-		// 	newNode->key = key;
-		// 	*(newNode->val) = x;
-		//
-		// 	//
-		// 	// if(root == NULL) {
-		// 	// 	head = newNode;
-		// 	// 	head->color = BLACK;
-		// 	// 	return;
-		// 	// }
-		// 	//
-		// 	// if(placeNode(root, newNode)) {
-		// 	//
-		// 	// }
-		// 	// else {
-		// 	//
-		// 	// }
-		// 	//
-		// 	// while();
-		//
-		// 	return newNode->key;
-		// }
+		// RP read primitives
+		void startRead() {
+			readers[reader] = EPOCH;
+		}
 
-		// this function will return false if the parent is red and true if the parent is black
-		// bool placeNode(Node<T> *root, Node<T> *newNode) {
-		// 	if(root->key > newNode->key) {
-		// 		if(root->left == NULL) {
-		// 			root->left = newNode;
-		// 			newNode->parent = root;
-		// 			return checkUncle(root);
-		// 		}
-		//
-		// 		return placeNode(root->left, newNode);
-		// 	}
-		//
-		// 	if(root->right == NULL) {
-		// 		root->right = newNode;
-		// 		newNode->parent = root;
-		// 		return root == BLACK? true:false;
-		// 	}
-		//
-		// 	return placeNode(root->right, newNode);
-		// }
-		//
-		// bool checkUncle(Node<T> *parent) {
-		// 	if(parent->parent == NULL) {
-		// 		return false;
-		// 	}
-		//
-		// 	if(parent->parent->left != NULL) {
-		// 		if(parent->parent->left->color == BLACK)
-		// 			return false;
-		//
-		// 		return true;
-		// 	}
-		//
-		// 	if(parent->parent->right != NULL) {
-		// 		if(parent->parent->right->color == BLACK)
-		// 			return false;
-		//
-		// 		return true;
-		// 	}
-		//
-		// 	return false;
-		// }
-		//
-		//
-		// T *lookup(size_t key) {
-		// 	Node<T> *tempRoot = this->root;
-		// 	Node<T> *expectedRoot;
-		//
-		// 	while(tempRoot != NULL) {
-		// 		expectedRoot = tempRoot.load(memory_order_relaxed);
-		//
-		// 		// If the current node has a key larger than what we want, traverse the left side
-		// 		// by switching 'roots' with a CAS operation
-		// 		if(tempRoot->key > key)
-		// 			while(!tempRoot.compare_exchange_weak(expectedRoot, tempRoot->left, memory_order_release, memory_order_relaxed));
-		//
-		// 		// If the current node has a key larger than what we want, traverse the right side
-		// 		// by switching 'roots' with a CAS operation
-		// 		else if(tempRoot->key <= key)
-		// 			while(!tempRoot.compare_exchange_weak(expectedRoot, tempRoot->right, memory_order_release, memory_order_relaxed));
-		//
-		// 		// Found the node!
-		// 		else
-		// 			return tempRoot->val;
-		// 	}
-		//
-		// 	return NULL;
-		// }
+		void endRead() {
+			readers[reader] = 0;
+		}
 
-		// void deleteNode(int key) {
-		// 	return numOps;
-		// }
-		//
+		// RP write primitives
+		void waitForReaders() {
+			int currEpoch;
 
-		// Get the leftmost node from the given node
+			this->epoch++;
+			currEpoch = this->epoch;
+
+			for(int i = 0; i < NUM_READERS; i++)
+				while(readers[i] != 0 && readers[i] < currEpoch);
+		}
+
+		Node<T> *insert(T x) {
+			size_t key = hash<T>{}(x);
+			Node<T> *newNode = getNewNode();
+
+			newNode->key = key;
+			*(newNode->val) = x;
+
+			treeInsert(root, newNode);
+
+			repairRBT(newNode);
+
+			root = newNode;
+
+			while(root->parent != NULL)
+				root = root->parent;
+
+			return root;
+
+		}
+
+		void treeInsert(Node<T> *root, Node<T> *newNode)
+		{
+
+			if(root == NULL)
+			{
+				newNode->parent = root;
+				newNode->left = NULL;
+				newNode->right = NULL;
+				newNode->color = RED;
+
+				return;
+			}
+
+			if(newNode->val < root->val)
+			{//traverse to the left side of the tree
+				if(root->left != NULL)
+				{
+					treeInsert(root->left, newNode);
+					return;
+				}
+
+				root->left = newNode;
+			}
+			else if(root->right != NULL)
+			{//try to traverse the right side of the tree
+				treeInsert(root->right, newNode);
+				return;
+			}
+
+			root->right = newNode;
+		}
+
+		void repairRBT(Node<T> *newNode)
+		{
+			if(newNode->parent == NULL)
+			{
+				newNode->color = BLACK;
+				return;
+			}
+			else if(newNode->parent == BLACK)
+			{
+				return;
+			}
+			else if(newNode->parent == RED)
+			{
+				newNode->parent->color = BLACK;
+				getUncle(newNode)->color = BLACK;
+				getGrandparent(newNode)->color = BLACK;
+				treeInsert(getGrandparent(newNode));
+				return;
+			}
+
+			Node<T> p = newNode->parent;
+			Node<T> g = getGrandparent(newNode);
+
+			if(newNode == g->left->right)
+			{
+				Node<T> temp = p->right;
+				assert(temp != NULL); // since the leaves of a red-black tree are empty, they cannot become internal nodes
+				p->right = temp->left;
+				temp->left = p;
+				p->parent = p->parent;
+				p->parent = temp;
+
+				newNode = newNode->left;
+			}
+			else if(newNode == g->right->left)
+			{
+				Node<T> temp = p->left;
+				assert(temp != NULL); // since the leaves of a red-black tree are empty, they cannot become internal nodes
+				p->left = temp->right;
+				temp->right = p;
+				p->parent = p->parent;
+				p->parent = temp;
+
+				newNode = newNode->right;
+			}
+
+			p = newNode->parent;
+			g = getGrandparent(newNode);
+
+			if(newNode == p->left)
+			{
+				Node<T> temp = g->left;
+				assert(temp != NULL); // since the leaves of a red-black tree are empty, they cannot become internal nodes
+				g->left = temp->right;
+				temp->right = g;
+				g->parent = g->parent;
+				g->parent = temp;
+			}
+			else
+			{
+				Node<T> temp = g->right;
+				assert(temp != NULL); // since the leaves of a red-black tree are empty, they cannot become internal nodes
+				g->right = temp->left;
+				temp->left = g;
+				g->parent = g->parent;
+				g->parent = temp;
+			}
+
+			p->color = BLACK;
+			g->color = RED;
+
+		}
+
+  // this function will return false if the parent is red and true if the parent is black
+  bool placeNode(Node<T> *root, Node<T> *newNode) {
+    if(root->key > newNode->key) {
+      if(root->left == NULL) {
+        root->left = newNode;
+        newNode->parent = root;
+        return checkUncle(root);
+      }
+		}
+  }
+
+// Get the leftmost node from the given node
 		Node<T> *leftmost(Node<T> *node) {
 			if(node == NULL)
 				return NULL;
@@ -181,19 +261,11 @@ class RealRBT {
 			return temp;
 		}
 
-		void readLock(mutex *lock) {
-			lock->lock();
-		}
-
-		void readUnlock(mutex *lock) {
-			lock->unlock();
-		}
-
-		T *first() {
+		T *first(int reader) {
 			Node<T> *node = NULL;
 			T *val = NULL;
 
-			readLock(this->lock);
+			startRead();
 
 			node = leftmost(this->root);
 
@@ -202,7 +274,7 @@ class RealRBT {
 
 			val = node->val;
 
-			readUnlock(this->lock);
+			endRead();
 
 			return val;
 		}
@@ -211,7 +283,7 @@ class RealRBT {
 			Node<T> *node = NULL;
 			T *val = NULL;
 
-			readLock(this->lock);
+			startRead(reader);
 
 			node = rightmost(this->root);
 
@@ -220,181 +292,423 @@ class RealRBT {
 
 			val = node->val;
 
-			readUnlock(this->lock);
+			endRead(reader);
 
 			return val;
 		}
 
-		Node<T> *next(Node<T> *currentNode)
-		{
-			Node<T> *currentNodex,*currentNodey;
+		// Performs a regular BST style insertion sequentially
+		bool bstInsert(Node<T> *newNode) {
+			if(newNode == NULL)
+				return this->root;
 
-			if ((currentNodex = *currentNode->right) != NULL) return leftmost(currentNodex);
+			Node<T> *temp = this->root;
 
-			currentNodey = currentNode->parent;
-			while (currentNodey != NULL && currentNodey->right != NULL && currentNode->key== *(currentNodey->right)->key)
-			{
-				currentNode = currentNodey;
-				currentNodey = *currentNodey->parent;
+			while(temp != NULL) {
+
+				if(newNode->key == temp->key)
+					return false;
+				else if(newNode->key > temp->key)
+					temp = temp->right;
+				else
+					temp = temp->left;
 			}
 
-			return currentNodey;
+			if(newNode->key >= temp->parent->key)
+				temp->right = newNode;
+			else
+				temp->left = newNode;
+
+			return true;
 		}
 
-		void *previous(T *tree, long nextKey, long *key)
-		{
-			assert(0);
-			return NULL;
+		Node<T> *sibling(Node<T> *node) {
+			if (node->parent->left == node)
+        return node->parent->right;
+    	else
+        return node->parent->left;
+		}
+
+		int restructure(Node<T> *node, Node<T> *parent, Node<T> *grandpa,
+										Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
+
+			if(grandpa->left == parent && parent->left == node) {
+				diagLeftRestruct(node, parent, grandpa);
+				return DIAG_LEFT;
+			}
+			else if(grandpa->left == parent && parent->right == node) {
+				zigLeftRestruct(node, parent, grandpa);
+				return ZIG_LEFT;
+			}
+			else if(parent->right == node && grandpa->right == parent) {
+				diagRightRestruct(node, parent, grandpa);
+				return DIAG_RIGHT;
+			}
+			else {
+				zigRightRestruct(node, parent, grandpa);
+				return ZIG_RIGHT;
+			}
+
+			return 0;
+		}
+
+		void recolor(Node<T> *node) {
+			Node<T> *parent = node->parent;
+			Node<T> *grandpa = parent->parent;
+			Node<T> *uncle = sibling(parent);
+
+			if(uncle == NULL || uncle->color == BLACK) {
+				restructure(node, parent, grandpa);
+				node->color = RED;
+				parent->color = BLACK;
+				grandpa->color = RED;
+			}
+			else if(uncle != NULL && uncle->color == RED) {
+				uncle->color = BLACK;
+				parent->color = BLACK;
+
+				if(grandpa->parent != NULL)
+					grandpa->color = RED;
+
+				if(grandpa->parent != NULL && grandpa->parent->color == RED)
+					recolor(grandpa);
+			}
+		}
+
+		bool insert(int key, T *val) {
+			Node<T> *newNode = getNewNode();
+			newNode->val = val;
+			newNode->key = key;
+
+			// If empty tree
+			if(this->root == NULL) {
+				newNode->color = BLACK;
+				this->root = newNode;
+			}
+			else {
+				bool success = bstInsert(newNode);
+
+				if(!success)
+					return false;
+
+				if(newNode->parent->color == RED)
+					recolor(newNode);
+			}
+
+			return true;
+		}
+
+		Node<T> *lookupHelper(int key) {
+			Node<T> *temp = this->root;
+
+			while(temp != NULL && key != temp->key) {
+				if(key > temp->key)
+					temp = temp->right;
+				else
+					temp = temp->left;
+			}
+
+			return temp;
+		}
+
+		T *lookup(int key) {
+			Node<T> *found = lookupHelper(key);
+
+			if(found == NULL)
+				return NULL;
+
+			return found->val;
+		}
+
+		// Leftmost node in right subtree
+		Node<T> *next(Node<T> *currentNode) {
+			return leftmost(currentNode->right);
+		}
+
+		// Rightmost node in left subtree
+		void *previous(Node<T> *currentNode) {
+			return rightmost(currentNode->left);
+		}
+
+		void swap(Node<T> *bNode) {
+			Node<T> *cNode = next(bNode);
+			Node<T> *cPrimeNode = cNode->getCopy();
+
+			cPrimeNode->color = bNode->color;
+
+			cPrimeNode->left = bNode->left;
+			cPrimeNode->left->parent = cPrimeNode;
+
+			cPrimeNode->right = bNode->left;
+			cPrimeNode->right->parent = cPrimeNode;
+
+			Node<T> *fNode = bNode->parent;
+			cPrimeNode->parent = fNode;
+
+			if(fNode->left == bNode)
+				;// rpPublish(fNode->left, cPrimeNode);
+			else
+				;// rpPublish(fNode->right, cPrimeNode);
+
+			rpFree(bNode);
+
+			waitForReaders();
+
+			Node<T> *eNode = cNode->parent;
+			rpPublish(eNode->left, cNode->right);
+			cNode->right->parent = eNode;
+
+			rpFree(cNode);
+		}
+
+		void specialSwap(Node<T> *bNode) {
+			Node<T> *cNode = next(bNode);
+
+			cNode->color = bNode->color;
+			cNode->left = bNode->left;
+			cNode->left->parent = cNode;
+
+			Node<T> *eNode = bNode->parent;
+
+			if(eNode->left == bNode)
+				;// rpPublish(eNode->left, cNode);
+			else
+				;// rpPublish(eNode->right, cNode);
+
+			rpFree(bNode);
+		}
+
+		// This a function that will delete the node that has two children
+		void interiorDelete(Node<T> *nodeToDelete) {
+			Node<T> *cNode = next(nodeToDelete);
+
+			Node<T> *cPrimeNode = cNode->getCopy();
+
+			cPrimeNode->color = nodeToDelete->color;
+
+			cPrimeNode->left = nodeToDelete->left;
+			cPrimeNode->left->parent = cPrimeNode;
+
+			cPrimeNode->right = nodeToDelete->right;
+			cPrimeNode->right->parent = cPrimeNode;
+
+			Node<T> *fNode = nodeToDelete->parent;
+			cPrimeNode->parent = fNode;
+
+			if(fNode->left == nodeToDelete)
+				//TODO create this fuction
+				;////rpPublish(fNode->left, cPrimeNode);
+			else
+				//TODO crate this fuction
+				;///rpPublish(fNode->right, cPrimeNode);
+			//TODO crate this fuction
+			////rpFree(nodeToDelete);
+
+			////waitForReaders();
+
+			Node<T> *eNode = cNode->parent;
+			//TODO crate this fuction
+			/////////rpPublish(eNode->left, cNode->right);
+			cNode->right->parent = eNode;
+
+			//TODO crate this fuction
+			rpFree(cNode);
+		}
+
+		// This is for the case of the special delete of the repalcement node being the child of
+		// the node to be deleted
+		void specialInteriorDelete(Node<T> *bNode) {
+			Node<T> *cNode = next(bNode);
+
+			cNode->color = bNode->color;
+			cNode->left = bNode->left;
+			cNode->left->parent = cNode;
+
+			Node<T> *eNode = bNode->parent;
+			if(eNode->left == bNode)
+				;//////rpPublish(eNode->left, cNode);
+			else
+				;//////rpPublish(eNode->right, cNode);
+
+			rpFree(bNode);
+		}
+
+
+		// This function will handle the restucturing of the tree
+		// with left diagnal
+		void diagLeftRestruct(Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
+			Node<T> *cNodePrime = cNode->getCopy();
+
+			cNodePrime->left = bNode->right;
+			cNodePrime->left->parent = cNodePrime;
+
+			///rpPublish(bNode->right, cNodePrime);
+			cNodePrime->parent = bNode;
+
+			Node<T> *dNode = cNode->parent;
+
+			if(dNode->left == cNode)
+				;////rpPublish(dNode->left, bNode);
+			else
+				;//////rpPublish(dNode->right, bNode);
+
+			bNode->parent = dNode;
+
+			rpFree(cNode);
+		}
+
+		void diagRightRestruct(Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
+			Node<T> *cNodePrime = cNode->getCopy();
+
+			cNodePrime->right = bNode->left;
+			cNodePrime->right->parent = cNodePrime;
+
+			///rpPublish(bNode->left, cNodePrime);
+			cNodePrime->parent = bNode;
+
+			Node<T> *dNode = cNode->parent;
+
+			if(dNode->right == cNode)
+				;////rpPublish(dNode->right, bNode);
+			else
+				;//////rpPublish(dNode->left, bNode);
+
+			bNode->parent = dNode;
+
+			rpFree(cNode);
+		}
+
+		void zigLeftRestruct(Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
+			Node<T> *aPrime = aNode->getCopy();
+			aPrime->right = bNode->left;
+			aPrime->right->parent = aPrime;
+
+			//rpPublish(B->left, aPrime);
+			aPrime->parent = bNode;
+
+			Node<T> *cPrime = cNode->getCopy();
+			cPrime->left = bNode->right;
+			cPrime->left->parent = cPrime;
+
+			// rpPublish(B->right, cPrime);
+			cPrime->parent = bNode;
+
+			Node<T> *dNode = cNode->parent;
+
+			if(dNode->left == cNode)
+				;//rpPubllish(D->left, B);
+			else
+				;//rpPublish(D->right, B);
+
+			rpFree(aNode);
+			rpFree(cNode);
+		}
+
+		void zigRightRestruct(Node<T> *aNode, Node<T> *bNode, Node<T> *cNode) {
+			Node<T> *aPrime = aNode->getCopy();
+			aPrime->left = bNode->right;
+			aPrime->left->parent = aPrime;
+
+			//rpPublish(B->right, aPrime);
+			aPrime->parent = bNode;
+
+			Node<T> *cPrime = cNode->getCopy();
+			cPrime->right = bNode->left;
+			cPrime->right->parent = cPrime;
+
+			// rpPublish(B->left, cPrime);
+			cPrime->parent = bNode;
+
+			Node<T> *dNode = cNode->parent;
+
+			if(dNode->right == cNode)
+				;//rpPubllish(D->right, B);
+			else
+				;//rpPublish(D->left, B);
+
+			rpFree(aNode);
+			rpFree(cNode);
+		}
+
+		void rpFree(Node<T> *node) {
+			free(node);
+		}
+
+		// void deleteNode(int key) {
+		// 	return numOps;
+		// }
+
+		//returns the lowest keyed value within the tree
+		 Node<T> *first(Node<T> root)
+		 {
+			if (root == NULL)
+				return NULL;
+			Node<T> temp = root;
+			while (temp->left != NULL)
+			{
+				temp = temp->left;
+			}
+			return temp;
+		 }
+
+		//returns the highest keyed value within the tree
+		Node<T> *last(Node<T> root) {
+			if (root == NULL)
+				return NULL;
+
+			Node<T> temp = root;
+			while (temp->right != NULL)
+			{
+				temp = temp->right;
+			}
+			return temp;
 		}
 		//
-		// T next() {
+
+		// T next(Node<T> *root) {
+		// 	Node<T> *temp;
+		//
+		// 	//if we are the root then we
+		// 	//will return the left most child of the right node
+		// 	if(root->parent==NULL)
+		// 		return first(root->right);
+		// 	//if the current node is the right greater than the parent then
+		// 	//the next keyed node will be the leftmost node from the right child of tha node
+		// 	else if(root->parent->val < root->val)
+		// 		if(root->right==NULL)
+		// 			return NULL;
+		// 		else
+		// 			return first(root->right);
+		// 	//if the current nodes value is less than the value
+		// 	//of its parent then the next keyed value will be the left most
+		// 	//child of its sibling right child
+		// 	else
+		// 		return first(root->parent->right);
 		//
 		// }
-		//
-		// T prev() {
-		//
-		// }
+
+		Node<T> *prev(Node<T> *root) {
+
+			Node<T> *temp;
+
+			//if we are the root then we
+			//will return the left most child of the right node
+			if(root->parent==NULL)
+				return last(root->left);
+			//if the current node is the right greater than the parent then
+			//the next keyed node will be the leftmost node from the right child of tha node
+			else if(root->parent->val < root->val)
+				if(root->left==NULL)
+					return NULL;
+				else
+					return last(root->left);
+			//if the current nodes value is less than the value
+			//of its parent then the next keyed value will be the left most
+			//child of its sibling right child
+			else
+				return last(root->left);
+		}
 };
-
-// global variables
-// bool canGetSize = false, canGetNumOp = false, canPop = false, canPush = false;
-// bool *canGetSizeP = &canGetSize, *canGetNumOpP = &canGetNumOp, *canPopP = &canPop, *canPushP = &canPush;
-// int value;
-// int *valuePush = &value;
-// stack<int*> stack;
-
-//menu function that will be ran by an independant thread
-// void menu(void) {
-// 	int option = 1;
-//
-// 	cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-//
-// 	while(option != 0) {
-//
-// 		cin >> option;
-//
-// 		switch(option) {
-// 			case 0:
-// 				canPushP = NULL;
-// 				canPopP = NULL;
-// 				canGetNumOpP = NULL;
-// 				canGetSizeP = NULL;
-// 				break;
-// 			case 1:
-// 				cout<<"what value would you like to push?"<<endl<<endl;
-// 				cin >> value;
-// 				// cout<<"pushing "<<valuePush;
-// 				canPush = true;
-// 				break;
-// 			case 2:
-// 				// cout<<"popping a value ";
-// 				canPop = true;
-// 				break;
-// 			case 3:
-// 				// cout<<"the size of the stack is ";
-// 				canGetNumOp = true;
-// 				break;
-// 			case 4:
-// 				// cout<<"the size of the stack is ";
-// 				canGetSize = true;
-// 				break;
-// 			default:
-// 				cout<<"give a valid input"<<endl<<endl;
-//
-// 		}
-// 	}
-//
-// }
-//
-// // push function that will be ran by an independant thread
-// void pushToStack(void) {
-// 	while(canPushP != NULL) {
-// 		if(*canPushP) {
-// 			cout<<"pushing "<<*valuePush<<endl<<endl;
-// 			stack.push(valuePush);
-// 			*canPushP = false;
-// 			cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-// 		}
-// 	}
-// }
-//
-// //pop function that will be ran by an independant thread
-// void popFromStack(void) {
-// 	while(canPopP != NULL) {
-// 		if(*canPopP) {
-// 			cout<<"popped the value "<<*stack.pop()<<endl<<endl;
-// 			*canPopP = false;
-// 			cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-// 		}
-// 	}
-// }
-//
-// //number of operations function that will be ran by an independant thread
-// void numerOpFromStack(void) {
-// 	while(canGetNumOpP != NULL) {
-// 		if(*canGetNumOpP) {
-// 			cout<<"the number of operations is "<<stack.getNumOps()<<endl<<endl;
-// 			*canGetNumOpP = false;
-// 			cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-// 		}
-// 	}
-// }
-//
-// //size function that will be ran by an independant thread
-// void sizeOfStack(void) {
-// 	while(canGetSizeP != NULL) {
-// 		if(*canGetSizeP) {
-// 			cout<<"the size of the stack is "<<stack.getSize()<<endl<<endl;
-// 			*canGetSizeP = false;
-// 			cout << "options:" << endl<<"1. push a value\n2. pop a value\n3. number of operations\n4. size of the stack\n0. exit\n"<<endl;
-// 		}
-// 	}
-// }
-//
-// //helper function to test stack functionality
-// void testStack() {
-//   // initialize the myThread array
-// 	thread myThreads[TOTAL_THREADS];
-//
-//   // init each index of myThread
-// 	myThreads[0] = thread(menu);
-// 	myThreads[1] = thread(pushToStack);
-// 	myThreads[2] = thread(popFromStack);
-// 	myThreads[3] = thread(numerOpFromStack);
-// 	myThreads[4] = thread(sizeOfStack);
-//
-//     //detaching so the threads that control the stack operations can run idependantly
-// 	for(int i = 1; i < TOTALTHREADS; i++)
-// 		myThreads[i].detach();
-//
-//   //join this thread so we wait for the menu thread to finish
-//   myThreads[0].join();
-//
-// }
-
-// size_t insertOp(RealRBT<int> *rbt, int val, int id) {
-// 	// Insert it and jot down the time
-// 	size_t key = rbt->insert(val);
-// 	long time = clock();
-//
-// 	// Strings print out weird concurrently. Build them first then print them out.
-// 	string p_out = "Thread " + to_string(id) + " inserted node with value " + to_string(val) + " and key " + to_string(key) + " at " + to_string(time) + "ms.\n";
-// 	cout << p_out;
-//
-// 	return key;
-// }
-//
-// int *lookupOp(RealRBT<int> *rbt, int key, int id) {
-// 	// Insert it and jot down the time
-// 	int *val = rbt->lookup(key);
-// 	long time = clock();
-//
-// 	// Strings print out weird concurrently. Build them first then print them out.
-// 	string p_out = "Thread " + to_string(id) + " looked up node with value " + to_string(*val) + " and key " + to_string(key) + " at " + to_string(time) + "ms.\n";
-// 	cout << p_out;
-//
-// 	return val;
-// }
 
 void runThread(RealRBT<int> *rbt, int id) {
 	// Make a random integer in the interval [1, 100)
@@ -404,7 +718,6 @@ void runThread(RealRBT<int> *rbt, int id) {
 	// size_t key = insertOp(rbt, val, id);
 	// int *found = lookupOp(rbt, key, id);
 }
-
 
 int main(int argc, char **argv) {
 	vector<thread*> threads;
