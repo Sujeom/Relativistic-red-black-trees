@@ -116,14 +116,14 @@ class RealRBT {
 
 			while(root->parent != NULL)
 				root = root->parent;
-			
-			return root;	
+
+			return root;
 
 		}
 
 		void treeInsert(Node<T> *root, Node<T> *newNode)
 		{
-		
+
 			if(root == NULL)
 			{
 				newNode->parent = root;
@@ -141,7 +141,7 @@ class RealRBT {
 					treeInsert(root->left, newNode);
 					return;
 				}
-				
+
 				root->left = newNode;
 			}
 			else if(root->right != NULL)
@@ -187,7 +187,7 @@ class RealRBT {
 
 				newNode = newNode->left;
 			}
-			else if(n == g->right->left)
+			else if(newNode == g->right->left)
 			{
 				Node<T> temp = p->left;
 				assert(temp != NULL); // since the leaves of a red-black tree are empty, they cannot become internal nodes
@@ -225,7 +225,7 @@ class RealRBT {
 			g->color = RED;
 
 		}
-  
+
   // this function will return false if the parent is red and true if the parent is black
   bool placeNode(Node<T> *root, Node<T> *newNode) {
     if(root->key > newNode->key) {
@@ -234,13 +234,14 @@ class RealRBT {
         newNode->parent = root;
         return checkUncle(root);
       }
+		}
   }
-        
+
 // Get the leftmost node from the given node
 		Node<T> *leftmost(Node<T> *node) {
 			if(node == NULL)
 				return NULL;
-      
+
 			Node<T> *temp = node;
 			while(temp->left != NULL)
 				temp = temp->left;
@@ -351,7 +352,7 @@ class RealRBT {
 			return 0;
 		}
 
-		bool recolor(Node<T> *node) {
+		void recolor(Node<T> *node) {
 			Node<T> *parent = node->parent;
 			Node<T> *grandpa = parent->parent;
 			Node<T> *uncle = sibling(parent);
@@ -638,9 +639,9 @@ class RealRBT {
 		// }
 
 		//returns the lowest keyed value within the tree
-		 Node<T> *first(Node<T> root) 
+		 Node<T> *first(Node<T> root)
 		 {
-			if (root == NULL) 
+			if (root == NULL)
 				return NULL;
 			Node<T> temp = root;
 			while (temp->left != NULL)
@@ -652,7 +653,7 @@ class RealRBT {
 
 		//returns the highest keyed value within the tree
 		Node<T> *last(Node<T> root) {
-			if (root == NULL) 
+			if (root == NULL)
 				return NULL;
 
 			Node<T> temp = root;
@@ -664,37 +665,37 @@ class RealRBT {
 		}
 		//
 
-		T next(Node<T> *root) {
-			Node<T> *temp;
+		// T next(Node<T> *root) {
+		// 	Node<T> *temp;
+		//
+		// 	//if we are the root then we
+		// 	//will return the left most child of the right node
+		// 	if(root->parent==NULL)
+		// 		return first(root->right);
+		// 	//if the current node is the right greater than the parent then
+		// 	//the next keyed node will be the leftmost node from the right child of tha node
+		// 	else if(root->parent->val < root->val)
+		// 		if(root->right==NULL)
+		// 			return NULL;
+		// 		else
+		// 			return first(root->right);
+		// 	//if the current nodes value is less than the value
+		// 	//of its parent then the next keyed value will be the left most
+		// 	//child of its sibling right child
+		// 	else
+		// 		return first(root->parent->right);
+		//
+		// }
 
-			//if we are the root then we
-			//will return the left most child of the right node
-			if(root->parent==NULL)
-				return first(root->right);
-			//if the current node is the right greater than the parent then 
-			//the next keyed node will be the leftmost node from the right child of tha node
-			else if(root->parent->val < root->val)
-				if(root->right==NULL)
-					return NULL;
-				else
-					return first(root->right);
-			//if the current nodes value is less than the value
-			//of its parent then the next keyed value will be the left most
-			//child of its sibling right child
-			else
-				return first(root->parent->right);
-			
-		}
-		
 		Node<T> *prev(Node<T> *root) {
-		
+
 			Node<T> *temp;
 
 			//if we are the root then we
 			//will return the left most child of the right node
 			if(root->parent==NULL)
 				return last(root->left);
-			//if the current node is the right greater than the parent then 
+			//if the current node is the right greater than the parent then
 			//the next keyed node will be the leftmost node from the right child of tha node
 			else if(root->parent->val < root->val)
 				if(root->left==NULL)
@@ -706,7 +707,6 @@ class RealRBT {
 			//child of its sibling right child
 			else
 				return last(root->left);
-
 		}
 };
 
