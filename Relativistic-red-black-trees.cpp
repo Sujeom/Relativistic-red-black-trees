@@ -697,12 +697,12 @@ class RealRBT {
 				if(root->left==NULL)
 					return NULL;
 				else
-					return first(root->left);
+					return last(root->left);
 			//if the current nodes value is less than the value
 			//of its parent then the next keyed value will be the left most
 			//child of its sibling right child
 			else
-				return first(root->parent->left);
+				return last(root->left);
 
 		}
 };
