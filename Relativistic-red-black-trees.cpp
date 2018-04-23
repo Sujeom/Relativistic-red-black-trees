@@ -41,9 +41,7 @@ class Node {
 		Node(int _key) {
 			key = _key;
 			color = BLACK;
-			left = NULL, right = NULL, parent = NULL;
-			backup = new Node<T>(0);
-			cout << "made node" << endl;
+			left = NULL, right = NULL, parent = NULL, backup = NULL;
 		}
 
 		Node<T> *getCopy() {
@@ -71,8 +69,12 @@ class RealRBT {
 			lock = new mutex();
 			readers = new int[NUM_READERS];
 
-			for(int i = 0; i < MAX_NUM_NODES; i++)
-				nodeBank.push_back(new Node<T>(0));
+			for(int i = 0; i < MAX_NUM_NODES; i++) {
+				Node<T> *n = new Node<T>(0);
+				n->backup = new Node<T>(0);
+
+				nodeBank.push_back(n);
+			}
 		}
 
 		Node<T> *getNewNode() {
@@ -533,16 +535,16 @@ int main(int argc, char **argv) {
 	// Make a shared RBT of integers
 	RealRBT<int> *rbt = new RealRBT<int>();
 
-	// // Random number seed
-	// srand(time(NULL));
-	//
-	// // Create threads with shared RBT and an ID
-	// for(int i = 0; i < TOTAL_THREADS; i++)
-	// 	threads.push_back(new thread(runThread, rbt, i));
-	//
-	// // Join 'em!
-	// for(int i = 0; i < TOTAL_THREADS; i++)
-	// 	threads[i]->join();
+	// Random number seed
+	srand(time(NULL));
+
+	// Create threads with shared RBT and an ID
+	for(int i = 0; i < TOTAL_THREADS; i++)
+		threads.push_back(new thread(runThread, rbt, i));
+
+	// Join 'em!
+	for(int i = 0; i < TOTAL_THREADS; i++)
+		threads[i]->join();
 
 	// testStack();
 }
