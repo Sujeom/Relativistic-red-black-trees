@@ -282,7 +282,12 @@ class RealRBT {
 				}
 			}
 			else{//we found the node to be deleted
-					return oneChild(root);
+					
+					//this is form the sequential solution
+					//return oneChild(root);
+
+					if(root->left == NULL && root->right == NULL)
+
 				}
 		}
 
@@ -499,7 +504,7 @@ class RealRBT {
 
 	//this is for the case of the special delete of the repalcement node being the child of 
 	//the node to be deleted
-	void specialInterior(Node<T> *bNode)
+	void specialInterior(Node<T> *b)
 	{
 		Node<T> *cNode = next(bNode);
 
@@ -629,22 +634,58 @@ class RealRBT {
 		// void deleteNode(int key) {
 		// 	return numOps;
 		// }
+
+		//returns the lowest keyed value within the tree
+		 Node<T> *first(Node<T> root) 
+		 {
+			if (root == NULL) 
+				return NULL;
+			Node<T> temp = root;
+			while (temp->left != NULL)
+			{
+				temp = temp->left;
+			}
+			return temp;
+		 }
+
+		//returns the highest keyed value within the tree
+		Node<T> *last(Node<T> root) {
+			if (root == NULL) 
+				return NULL;
+
+			Node<T> temp = root;
+			while (temp->right != NULL)
+			{
+				temp = temp->right;
+			}
+			return temp;
+		}
 		//
-		// T first() {
-		//
-		// }
-		//
-		// T last() {
-		//
-		// }
-		//
-		// T next() {
-		//
-		// }
-		//
-		// T prev() {
-		//
-		// }
+		T next(Node<T> *root) {
+			Node<T> *temp;
+
+			//if we are the root then we
+			//will return the left most child of the right node
+			if(root->parent==NULL)
+				return first(root->right);
+			//if the current node is the right greater than the parent then 
+			//the next keyed node will be the leftmost node from the right child of tha node
+			else if(root->parent->val < root->val)
+				if(root->right==NULL)
+					return NULL;
+				else
+					return first(root->right);
+			//if the current nodes value is less than the value
+			//of its parent then the next keyed value will be the left most
+			//child of its sibling right child
+			else
+				return first(root->parent->right);
+			
+		}
+		
+		Node<T> *prev(Node<T> *root) {
+		
+		}
 };
 
 // global variables
