@@ -256,9 +256,11 @@ class RealRBT {
 				if(newNode->parent->color == RED)
 					recolor(newNode);
 			}
+
+			return true;
 		}
 
-		Node<T> *lookup(int key) {
+		Node<T> *lookupHelper(int key) {
 			Node<T> *temp = this->root;
 
 			while(temp != NULL && key != temp->key) {
@@ -269,6 +271,15 @@ class RealRBT {
 			}
 
 			return temp;
+		}
+
+		T *lookup(int key) {
+			Node<T> *found = lookupHelper(key);
+
+			if(found == NULL)
+				return NULL;
+
+			return found->val;
 		}
 
 		// Leftmost node in right subtree
