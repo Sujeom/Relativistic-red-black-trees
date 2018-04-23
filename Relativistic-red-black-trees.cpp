@@ -5,7 +5,8 @@
 #include <string>
 #include <mutex>
 #include <assert.h>
-#include "rcu.c"
+
+// #include "rcu.h"
 
 #define TOTAL_THREADS 	5
 #define MAX_NUM_NODES 	10000
@@ -58,6 +59,7 @@ class RealRBT {
 		atomic_int nodeBankIndex{0};
 		int *readers;
 		atomic_int epoch{EPOCH};
+		hash<T> hasher;
 
 	public:
 		Node<T> *root;
@@ -69,6 +71,8 @@ class RealRBT {
 			lock = new mutex();
 			readers = new int[NUM_READERS];
 
+			rcu_init(void);
+
 			for(int i = 0; i < MAX_NUM_NODES; i++) {
 				Node<T> *n = new Node<T>(0);
 				n->backup = new Node<T>(0);
@@ -77,8 +81,11 @@ class RealRBT {
 			}
 		}
 
-		Node<T> *getNewNode() {
-			return nodeBank[(nodeBankIndex++) % MAX_NUM_NODES];
+		Node<T> *getNewNode(T val) {
+			Node<T> *newNode = nodeBank[(nodeBankIndex++) % MAX_NUM_NODES];
+			newNode->val = val;
+			newNode->key = hasher(val);
+			return newNode;
 		}
 
 		// RP read primitives
@@ -151,6 +158,7 @@ class RealRBT {
 			}
 
 			root->right = newNode;
+			restructure(newNode, newNode->parent, newNode->parent->parent);
 		}
 
 		void repairRBT(Node<T> *newNode)
@@ -226,16 +234,16 @@ class RealRBT {
 
 		}
 
-  // this function will return false if the parent is red and true if the parent is black
-  bool placeNode(Node<T> *root, Node<T> *newNode) {
-    if(root->key > newNode->key) {
-      if(root->left == NULL) {
-        root->left = newNode;
-        newNode->parent = root;
-        return checkUncle(root);
-      }
-		}
-  }
+	  // this function will return false if the parent is red and true if the parent is black
+	  bool placeNode(Node<T> *root, Node<T> *newNode) {
+	    if(root->key > newNode->key) {
+	      if(root->left == NULL) {
+	        root->left = newNode;
+	        newNode->parent = root;
+	        return checkUncle(root);
+	      }
+			}
+	  }
 
 // Get the leftmost node from the given node
 		Node<T> *leftmost(Node<T> *node) {
@@ -314,6 +322,7 @@ class RealRBT {
 					temp = temp->left;
 			}
 
+
 			if(newNode->key >= temp->parent->key)
 				temp->right = newNode;
 			else
@@ -374,28 +383,35 @@ class RealRBT {
 			}
 		}
 
-		bool insert(T val) {
-			Node<T> *newNode = getNewNode();
-			newNode->val = val;
-			newNode->key = hash<T>{}(val);
-
-			// If empty tree
-			if(this->root == NULL) {
-				newNode->color = BLACK;
-				this->root = newNode;
-			}
-			else {
-				bool success = bstInsert(newNode);
-
-				if(!success)
-					return false;
-
-				if(newNode->parent->color == RED)
-					recolor(newNode);
-			}
-
-			return true;
-		}
+		// bool insert(T val) {
+		// 	Node<T> *newNode = new Node<T>(val);
+		// 	newNode->val = val;
+		// 	newNode->key = hash<T>{}(val);
+		//
+		// 	// If empty tree
+		// 	if(this->root == NULL) {
+		// 		newNode->color = BLACK;
+		// 		this->root = newNode;
+		// 		cout << "root is null" << endl;
+		// 	}
+		// 	else {
+		// 		cout << "root is not null" << endl;
+		//
+		// 		bool success = bstInsert(newNode);
+		//
+		// 		cout << "bstInsert" << endl;
+		//
+		// 		if(!success)
+		// 			return false;
+		//
+		// 		if(newNode->parent->color == RED)
+		// 			recolor(newNode);
+		// 	}
+		//
+		// 	cout << "he" << endl;
+		//
+		// 	return true;
+		// }
 
 		Node<T> *lookupHelper(int key) {
 			Node<T> *temp = this->root;
@@ -410,7 +426,7 @@ class RealRBT {
 			return temp;
 		}
 
-		T *lookup(int key, int reader) {
+		T lookup(int key, int reader) {
 			startRead(reader);
 
 			Node<T> *found = lookupHelper(key);
@@ -418,7 +434,7 @@ class RealRBT {
 			endRead(reader);
 
 			if(found == NULL)
-				return NULL;
+				return -1;
 
 			return found->val;
 		}
@@ -713,22 +729,30 @@ class RealRBT {
 		}
 };
 
-void runThread(RealRBT<int> *rbt, int id) {
+void runThread(RealRBT<int> *rbt, int id, vector<int> values) {
 	// Insert it and jot down the time
-	// size_t key = insertOp(rbt, val, id);
-	// int *found = lookupOp(rbt, key, id);
+
+	int val = rand() % values.size();
+	int foundVal = rbt->lookup(values.at(val), id);
+
+	cout << "Found value " << foundVal << " from " << values.at(val) << " by thread " << id << "." << endl;
 }
 
-RealRBT<int> *populateRBT(RealRBT<int> *tree) {
+vector<int> populateRBT(RealRBT<int> *tree) {
+	vector<int> valuesInserted;
 
-	for(int i = 0; i < MAX_NUM_NODES / 2; i++) {
+	for(int i = 0; i < MAX_NUM_NODES; i++) {
 		// Make a random integer in the interval [1, 100)
 		int val = rand() % 100;
+		Node<int> *newNode = tree->getNewNode(val);
 
-		bool success = tree->insert(val);
+		tree->treeInsert(tree->root, newNode);
+		valuesInserted.push_back(newNode->key);
+
+		cout << "Inserted " << newNode->val << " into tree with key " << newNode->key << " ..." << endl;
 	}
 
-	return tree;
+	return valuesInserted;
 }
 
 int main(int argc, char **argv) {
@@ -740,11 +764,11 @@ int main(int argc, char **argv) {
 	// Random number seed
 	srand(time(NULL));
 
-	populateRBT(rbt);
+	vector<int> values = populateRBT(rbt);
 
 	// Create threads with shared RBT and an ID
 	for(int i = 0; i < TOTAL_THREADS; i++)
-		threads.push_back(new thread(runThread, rbt, i));
+		threads.push_back(new thread(runThread, rbt, i, values));
 
 	// Join 'em!
 	for(int i = 0; i < TOTAL_THREADS; i++)
