@@ -22,13 +22,8 @@
 #include <memory.h>
 #include "atomic_ops.h"
 #include <assert.h>
-<<<<<<< HEAD
 #include <urcu.h>
 #include <urcu/compiler.h>
-=======
-// #include <urcu.h>
-// #include <urcu.h>
->>>>>>> e3bc714fe6e0b102acdea936c4b093634e68af0c
 
 
 // #include "rcu.h"
@@ -99,11 +94,8 @@ class RealRBT {
 			pthread_rwlockattr_setkind_np(&attribute, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
 			pthread_rwlock_init(lock, &attribute);
 
-<<<<<<< HEAD
 			rcu_init();
 
-=======
->>>>>>> e3bc714fe6e0b102acdea936c4b093634e68af0c
 			for(int i = 0; i < MAX_NUM_NODES; i++) {
 				Node<T> *n = new Node<T>(0);
 				n->backup = new Node<T>(0);
@@ -799,12 +791,8 @@ int main(int argc, char **argv) {
 	// Random number seed
 	srand(time(NULL));
 
-<<<<<<< HEAD
-	vector<int> values = populateRBT(rbt);
-	rcu_register_thread();
-=======
 	vector<int> values = populateRBT(&rbt);
->>>>>>> e3bc714fe6e0b102acdea936c4b093634e68af0c
+	rcu_register_thread();
 
 	// Create threads with shared RBT and an ID
 	for(int i = 0; i < TOTAL_THREADS; i++)
