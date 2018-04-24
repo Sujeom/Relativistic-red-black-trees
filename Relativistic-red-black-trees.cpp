@@ -22,8 +22,13 @@
 #include <memory.h>
 #include "atomic_ops.h"
 #include <assert.h>
+<<<<<<< HEAD
 #include <urcu.h>
 #include <urcu/compiler.h>
+=======
+// #include <urcu.h>
+// #include <urcu.h>
+>>>>>>> e3bc714fe6e0b102acdea936c4b093634e68af0c
 
 
 // #include "rcu.h"
@@ -94,8 +99,11 @@ class RealRBT {
 			pthread_rwlockattr_setkind_np(&attribute, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
 			pthread_rwlock_init(lock, &attribute);
 
+<<<<<<< HEAD
 			rcu_init();
 
+=======
+>>>>>>> e3bc714fe6e0b102acdea936c4b093634e68af0c
 			for(int i = 0; i < MAX_NUM_NODES; i++) {
 				Node<T> *n = new Node<T>(0);
 				n->backup = new Node<T>(0);
@@ -763,15 +771,15 @@ void runThread(RealRBT<int> *rbt, int id, vector<int> values) {
 
 }
 
-vector<int> populateRBT(RealRBT<int> *tree) {
+vector<int> populateRBT(RealRBT<int> **tree) {
 	vector<int> valuesInserted;
 
 	for(int i = 0; i < MAX_NUM_NODES; i++) {
 		// Make a random integer in the interval [1, 100)
 		int val = rand() % 100;
-		Node<int> *newNode = tree->getNewNode(val);
+		Node<int> *newNode = (*tree)->getNewNode(val);
 
-		tree->treeInsert(tree->root, newNode);
+		(*tree)->treeInsert((*tree)->root, newNode);
 		valuesInserted.push_back(newNode->key);
 
 		cout << "Inserted " << newNode->val << " into tree with key " << newNode->key << " ..." << endl;
@@ -791,8 +799,12 @@ int main(int argc, char **argv) {
 	// Random number seed
 	srand(time(NULL));
 
+<<<<<<< HEAD
 	vector<int> values = populateRBT(rbt);
 	rcu_register_thread();
+=======
+	vector<int> values = populateRBT(&rbt);
+>>>>>>> e3bc714fe6e0b102acdea936c4b093634e68af0c
 
 	// Create threads with shared RBT and an ID
 	for(int i = 0; i < TOTAL_THREADS; i++)

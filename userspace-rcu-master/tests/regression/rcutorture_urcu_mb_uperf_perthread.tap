@@ -1,0 +1,1 @@
+./rcutorture_urcu_mb `nproc` uperf 1 callrcu_perthread
