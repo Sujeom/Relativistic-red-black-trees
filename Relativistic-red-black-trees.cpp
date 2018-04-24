@@ -5,6 +5,8 @@
 #include <string>
 #include <mutex>
 #include <assert.h>
+// #include <urcu.h>
+// #include <urcu.h>
 
 // #include "rcu.h"
 
@@ -70,8 +72,6 @@ class RealRBT {
 			root = NULL;
 			lock = new mutex();
 			readers = new int[NUM_READERS];
-
-			rcu_init(void);
 
 			for(int i = 0; i < MAX_NUM_NODES; i++) {
 				Node<T> *n = new Node<T>(0);
@@ -738,15 +738,15 @@ void runThread(RealRBT<int> *rbt, int id, vector<int> values) {
 	cout << "Found value " << foundVal << " from " << values.at(val) << " by thread " << id << "." << endl;
 }
 
-vector<int> populateRBT(RealRBT<int> *tree) {
+vector<int> populateRBT(RealRBT<int> **tree) {
 	vector<int> valuesInserted;
 
 	for(int i = 0; i < MAX_NUM_NODES; i++) {
 		// Make a random integer in the interval [1, 100)
 		int val = rand() % 100;
-		Node<int> *newNode = tree->getNewNode(val);
+		Node<int> *newNode = (*tree)->getNewNode(val);
 
-		tree->treeInsert(tree->root, newNode);
+		(*tree)->treeInsert((*tree)->root, newNode);
 		valuesInserted.push_back(newNode->key);
 
 		cout << "Inserted " << newNode->val << " into tree with key " << newNode->key << " ..." << endl;
@@ -764,7 +764,7 @@ int main(int argc, char **argv) {
 	// Random number seed
 	srand(time(NULL));
 
-	vector<int> values = populateRBT(rbt);
+	vector<int> values = populateRBT(&rbt);
 
 	// Create threads with shared RBT and an ID
 	for(int i = 0; i < TOTAL_THREADS; i++)
