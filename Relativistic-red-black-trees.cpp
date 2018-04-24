@@ -1,13 +1,32 @@
+/*
+	RCU EQUIVALENCE TO RP PRIMITIVES:
+	start-read() -> rcu_read_lock()
+	end-read() -> rcu_read_unlock()
+	wait-for-readers() -> synchronize_rcu()
+	rp-publish() -> rcu_assign_pointer()
+
+	This equivalence was made as a last minute decision to "save" the project. We were not able to figure out the implementation of the
+	RP primitives and instead migrated to RCU primitives.
+*/
+
+#define _LGPL_SOURCE
+#define URCU_INLINE_SMALL_FUNCTIONS
+
 #include <iostream>
 #include <thread>
 #include <atomic>
 #include <vector>
 #include <string>
 #include <mutex>
+#include <pthread.h>
+#include <memory.h>
+#include "atomic_ops.h"
 #include <assert.h>
+#include <urcu.h>
+#include <urcu/compiler.h>
+
 
 // #include "rcu.h"
-
 #define TOTAL_THREADS 	5
 #define MAX_NUM_NODES 	10000
 #define NUM_READERS 		10
@@ -57,21 +76,25 @@ class RealRBT {
 	private:
 		vector<Node<T>*> nodeBank;
 		atomic_int nodeBankIndex{0};
-		int *readers;
-		atomic_int epoch{EPOCH};
+		// int *readers;
+		// atomic_int epoch{EPOCH};
 		hash<T> hasher;
 
 	public:
 		Node<T> *root;
-		atomic_int size{0};
-		mutex *lock;
+		// atomic_int size{0};
+		pthread_rwlock_t *lock;
 
 		RealRBT() {
 			root = NULL;
-			lock = new mutex();
-			readers = new int[NUM_READERS];
+			lock = new pthread_rwlock_t();
+			//readers = new int[NUM_READERS];
+			pthread_rwlockattr_t attribute;
+			pthread_rwlockattr_init(&attribute);
+			pthread_rwlockattr_setkind_np(&attribute, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
+			pthread_rwlock_init(lock, &attribute);
 
-			rcu_init(void);
+			rcu_init();
 
 			for(int i = 0; i < MAX_NUM_NODES; i++) {
 				Node<T> *n = new Node<T>(0);
@@ -88,25 +111,25 @@ class RealRBT {
 			return newNode;
 		}
 
-		// RP read primitives
-		void startRead(int reader) {
-			readers[reader] = EPOCH;
-		}
+		// // RP read primitives
+		// void startRead(int reader) {
+		// 	readers[reader] = EPOCH;
+		// }
 
-		void endRead(int reader) {
-			readers[reader] = 0;
-		}
+		// void endRead(int reader) {
+		// 	readers[reader] = 0;
+		// }
 
-		// RP write primitives
-		void waitForReaders() {
-			int currEpoch;
+		// // RP write primitives
+		// void waitForReaders() {
+		// 	int currEpoch;
 
-			this->epoch++;
-			currEpoch = this->epoch;
+		// 	this->epoch++;
+		// 	currEpoch = this->epoch;
 
-			for(int i = 0; i < NUM_READERS; i++)
-				while(readers[i] != 0 && readers[i] < currEpoch);
-		}
+		// 	for(int i = 0; i < NUM_READERS; i++)
+		// 		while(readers[i] != 0 && readers[i] < currEpoch);
+		// }
 
 		// Node<T> *insert(T x) {
 		// 	size_t key = hash<T>{}(x);
@@ -273,8 +296,7 @@ class RealRBT {
 			Node<T> *node = NULL;
 			T *val = NULL;
 
-			startRead(reader);
-
+			rcu_read_lock();
 			node = leftmost(this->root);
 
 			if(node == NULL)
@@ -282,7 +304,7 @@ class RealRBT {
 
 			val = node->val;
 
-			endRead(reader);
+			rcu_read_unlock();
 
 			return val;
 		}
@@ -291,7 +313,7 @@ class RealRBT {
 			Node<T> *node = NULL;
 			T *val = NULL;
 
-			startRead(reader);
+			rcu_read_lock();
 
 			node = rightmost(this->root);
 
@@ -300,7 +322,7 @@ class RealRBT {
 
 			val = node->val;
 
-			endRead(reader);
+			rcu_read_unlock();
 
 			return val;
 		}
@@ -427,11 +449,12 @@ class RealRBT {
 		}
 
 		T lookup(int key, int reader) {
-			startRead(reader);
+			//startRead(reader);
 
+			rcu_read_lock();
 			Node<T> *found = lookupHelper(key);
-
-			endRead(reader);
+			rcu_read_unlock();
+			//endRead(reader);
 
 			if(found == NULL)
 				return -1;
@@ -465,16 +488,17 @@ class RealRBT {
 			cPrimeNode->parent = fNode;
 
 			if(fNode->left == bNode)
-				;// rpPublish(fNode->left, cPrimeNode);
+				rcu_assign_pointer(fNode->left, cPrimeNode);
 			else
-				;// rpPublish(fNode->right, cPrimeNode);
+				rcu_assign_pointer(fNode->right, cPrimeNode);
 
 			rpFree(bNode);
 
-			waitForReaders();
+			synchronize_rcu();
+			// waitForReaders();
 
 			Node<T> *eNode = cNode->parent;
-			rpPublish(eNode->left, cNode->right);
+			rcu_assign_pointer(eNode->left, cNode->right);
 			cNode->right->parent = eNode;
 
 			rpFree(cNode);
@@ -490,9 +514,9 @@ class RealRBT {
 			Node<T> *eNode = bNode->parent;
 
 			if(eNode->left == bNode)
-				;// rpPublish(eNode->left, cNode);
+				rcu_assign_pointer(eNode->left, cNode);
 			else
-				;// rpPublish(eNode->right, cNode);
+				rcu_assign_pointer(eNode->right, cNode);
 
 			rpFree(bNode);
 		}
@@ -516,18 +540,18 @@ class RealRBT {
 
 			if(fNode->left == nodeToDelete)
 				//TODO create this fuction
-				;////rpPublish(fNode->left, cPrimeNode);
+				rcu_assign_pointer(fNode->left, cPrimeNode);
 			else
 				//TODO crate this fuction
-				;///rpPublish(fNode->right, cPrimeNode);
+				rcu_assign_pointer(fNode->right, cPrimeNode);
 			//TODO crate this fuction
-			////rpFree(nodeToDelete);
-
-			////waitForReaders();
+			
+			rpFree(nodeToDelete);
+			synchronize_rcu();	
 
 			Node<T> *eNode = cNode->parent;
 			//TODO crate this fuction
-			/////////rpPublish(eNode->left, cNode->right);
+			rcu_assign_pointer(eNode->left, cNode->right);
 			cNode->right->parent = eNode;
 
 			//TODO crate this fuction
@@ -545,9 +569,9 @@ class RealRBT {
 
 			Node<T> *eNode = bNode->parent;
 			if(eNode->left == bNode)
-				;//////rpPublish(eNode->left, cNode);
+				rcu_assign_pointer(eNode->left, cNode);
 			else
-				;//////rpPublish(eNode->right, cNode);
+				rcu_assign_pointer(eNode->right, cNode);
 
 			rpFree(bNode);
 		}
@@ -561,15 +585,15 @@ class RealRBT {
 			cNodePrime->left = bNode->right;
 			cNodePrime->left->parent = cNodePrime;
 
-			///rpPublish(bNode->right, cNodePrime);
+			rcu_assign_pointer(bNode->right, cNodePrime);
 			cNodePrime->parent = bNode;
 
 			Node<T> *dNode = cNode->parent;
 
 			if(dNode->left == cNode)
-				;////rpPublish(dNode->left, bNode);
+				rcu_assign_pointer(dNode->left, bNode);
 			else
-				;//////rpPublish(dNode->right, bNode);
+				rcu_assign_pointer(dNode->right, bNode);
 
 			bNode->parent = dNode;
 
@@ -582,15 +606,15 @@ class RealRBT {
 			cNodePrime->right = bNode->left;
 			cNodePrime->right->parent = cNodePrime;
 
-			///rpPublish(bNode->left, cNodePrime);
+			rcu_assign_pointer(bNode->left, cNodePrime);
 			cNodePrime->parent = bNode;
 
 			Node<T> *dNode = cNode->parent;
 
 			if(dNode->right == cNode)
-				;////rpPublish(dNode->right, bNode);
+				rcu_assign_pointer(dNode->right, bNode);
 			else
-				;//////rpPublish(dNode->left, bNode);
+				rcu_assign_pointer(dNode->left, bNode);
 
 			bNode->parent = dNode;
 
@@ -602,22 +626,22 @@ class RealRBT {
 			aPrime->right = bNode->left;
 			aPrime->right->parent = aPrime;
 
-			//rpPublish(B->left, aPrime);
+			rcu_assign_pointer(bNode->left, aPrime);
 			aPrime->parent = bNode;
 
 			Node<T> *cPrime = cNode->getCopy();
 			cPrime->left = bNode->right;
 			cPrime->left->parent = cPrime;
 
-			// rpPublish(B->right, cPrime);
+			rcu_assign_pointer(bNode->right, cPrime);
 			cPrime->parent = bNode;
 
 			Node<T> *dNode = cNode->parent;
 
 			if(dNode->left == cNode)
-				;//rpPubllish(D->left, B);
+				rcu_assign_pointer(dNode->left, bNode);
 			else
-				;//rpPublish(D->right, B);
+				rcu_assign_pointer(dNode->right, bNode);
 
 			rpFree(aNode);
 			rpFree(cNode);
@@ -628,22 +652,22 @@ class RealRBT {
 			aPrime->left = bNode->right;
 			aPrime->left->parent = aPrime;
 
-			//rpPublish(B->right, aPrime);
+			rcu_assign_pointer(bNode->right, aPrime);
 			aPrime->parent = bNode;
 
 			Node<T> *cPrime = cNode->getCopy();
 			cPrime->right = bNode->left;
 			cPrime->right->parent = cPrime;
 
-			// rpPublish(B->left, cPrime);
+			rcu_assign_pointer(bNode->left, cPrime);
 			cPrime->parent = bNode;
 
 			Node<T> *dNode = cNode->parent;
 
 			if(dNode->right == cNode)
-				;//rpPubllish(D->right, B);
+				rcu_assign_pointer(dNode->right, bNode);
 			else
-				;//rpPublish(D->left, B);
+				rcu_assign_pointer(dNode->left, bNode);
 
 			rpFree(aNode);
 			rpFree(cNode);
@@ -736,6 +760,7 @@ void runThread(RealRBT<int> *rbt, int id, vector<int> values) {
 	int foundVal = rbt->lookup(values.at(val), id);
 
 	cout << "Found value " << foundVal << " from " << values.at(val) << " by thread " << id << "." << endl;
+
 }
 
 vector<int> populateRBT(RealRBT<int> *tree) {
@@ -761,10 +786,13 @@ int main(int argc, char **argv) {
 	// Make a shared RBT of integers
 	RealRBT<int> *rbt = new RealRBT<int>();
 
+	//rcu_init();
+
 	// Random number seed
 	srand(time(NULL));
 
 	vector<int> values = populateRBT(rbt);
+	rcu_register_thread();
 
 	// Create threads with shared RBT and an ID
 	for(int i = 0; i < TOTAL_THREADS; i++)
@@ -773,6 +801,8 @@ int main(int argc, char **argv) {
 	// Join 'em!
 	for(int i = 0; i < TOTAL_THREADS; i++)
 		threads[i]->join();
+
+	rcu_unregister_thread();
 
 	// testStack();
 }
